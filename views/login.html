@@ -1,0 +1,11 @@
+﻿<script src="js/controllers/controllerLogin.js"></script>
+<div class="container" ng-controller="controllerLogin" class="form">
+    <div>Login</div>
+    <div>
+        <input class="form-control" placeholder="Login" ng-model="profileName" />
+    </div>
+    <div>
+        <input class="form-control" placeholder="Pass" type="password" ng-model="profilePassword" />
+    </div>
+    <button class="btn btn-success form-control" ng-click="login()">Login</button>
+</div>

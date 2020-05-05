@@ -1,9 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using SimpleSocialNetwork.Data.DbContexts;
 using SimpleSocialNetwork.Data.Repositories;
 using SimpleSocialNetwork.Dto;
 using SimpleSocialNetwork.Models;
@@ -12,17 +8,36 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
 {
     public class ModelFeedService : IModelFeedService
     {
+        private IRepository<ModelFeed> feedRepo;
+        private IRepository<ModelLike> likeRepo;
+        private IRepository<ModelProfile> profileRepo;
+
+        public ModelFeedService()
+        {
+            this.feedRepo = new ModelFeedRepository();
+            this.likeRepo = new ModelLikeRepository();
+            this.profileRepo = new ModelProfileRepository();
+        }
+
+        public ModelFeedService(
+            IRepository<ModelFeed> feedRepo,
+            IRepository<ModelLike> likeRepo,
+            IRepository<ModelProfile> profileRepo)
+        {
+            this.feedRepo = feedRepo;
+            this.likeRepo = likeRepo;
+            this.profileRepo = profileRepo;
+        }
+
         public IEnumerable<DtoFeed> GetFeed()
         {
-            var feedRepo = new ModelFeedRepository();
-            var likesRepo = new ModelLikeRepository();
             var dtoFeed = new List<DtoFeed>();
 
             var feed = feedRepo.GetAll();
             foreach (var f in feed)
             {
                 var dtoLikes = new List<DtoLike>();
-                var likes = likesRepo.Where(l => l.FeedId == f.Id);
+                var likes = likeRepo.Where(l => l.FeedId == f.Id);
                 foreach (var l in likes)
                 {
                     var dtoLike = new DtoLike()
@@ -50,9 +65,6 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
         public int AddFeed(DtoFeed dtoFeed)
         {
             ModelFeed modelFeed;
-            var feedRepo = new ModelFeedRepository();
-            var profileRepo = new ModelProfileRepository();
-
             modelFeed = new ModelFeed()
             {
                 DateAdd = DateTime.Now,
@@ -66,13 +78,12 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
 
         public void DeleteFeed(int feedId)
         {
-            new ModelFeedRepository().RecoursiveDelete(feedId);
+            // TODO: someting wrong with this func
+            (this.feedRepo as ModelFeedRepository).RecoursiveDelete(feedId);
         }
 
         public int Like(DtoLike like)
         {
-            var profileRepo = new ModelProfileRepository();
-            var likeRepo = new ModelLikeRepository();
             var modelLike = new ModelLike()
             {
                 FeedId = like.feedId,
@@ -83,7 +94,6 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
 
         public DtoLike Dislike(int likeId)
         {
-            var likeRepo = new ModelLikeRepository();
             var like = new DtoLike();
             var model = likeRepo.FirstOrDefault(l => l.Id == likeId);
             like.feedId = model.FeedId;

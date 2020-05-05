@@ -1,13 +1,11 @@
-﻿using SimpleSocialNetwork.App_Code.Database;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using System.Net.Http;
 using System.Web;
 using System.Web.Http.Controllers;
 using System.Web.Http.Filters;
+using SimpleSocialNetwork.App_Code.Database;
 
-namespace SimpleSocialNetwork.App_Code
+namespace SimpleSocialNetwork
 {
     public class IsAuthenticated : ActionFilterAttribute
     {

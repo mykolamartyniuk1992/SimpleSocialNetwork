@@ -1,13 +1,13 @@
 ﻿using SimpleSocialNetwork.App_Code;
 using SimpleSocialNetwork.App_Code.Database;
-using SimpleSocialNetwork.App_Code.Database.Dto;
-using SimpleSocialNetwork.App_Code.Database.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Web;
 using System.Web.Http;
+using SimpleSocialNetwork.Database.Dto;
+using SimpleSocialNetwork.Models;
 
 namespace SimpleSocialNetwork.Controllers
 {
@@ -66,7 +66,7 @@ namespace SimpleSocialNetwork.Controllers
                 modelFeed = new ModelFeed()
                 {
                     DateAdd = DateTime.Now,
-                    ProfileId = context.profiles.Where(p => p.Name == dtoFeed.name && p.Token == dtoFeed.token).FirstOrDefault().Id,
+                    ProfileId = context.profiles.FirstOrDefault(p => p.Name == dtoFeed.name && p.Token == dtoFeed.token).Id,
                     Text = dtoFeed.text,
                     ParentId = dtoFeed.parentId
                 };
@@ -94,7 +94,7 @@ namespace SimpleSocialNetwork.Controllers
             if (dtoFeed.name != name.Value || dtoFeed.token != token.Value) throw new HttpException(403, "you are not the author of this post!");
             using (var context = new SimpleSocialNetworkDbContext())
             {
-                var modelFeed = context.feed.Where(f => f.Id == dtoFeed.id).FirstOrDefault();
+                var modelFeed = context.feed.FirstOrDefault(f => f.Id == dtoFeed.id);
 
                 RecoursiveDelete(modelFeed, context);
 
@@ -121,16 +121,6 @@ namespace SimpleSocialNetwork.Controllers
             context.feed.Remove(parent);
         }
 
-        //[IsAuthenticated]
-        //[HttpPost]
-        //public bool IsLiked(DtoLike like)
-        //{
-        //    using (var context = new SimpleSocialNetworkDbContext())
-        //    {
-        //        var modelLike = 
-        //    }
-        //}
-
         [IsAuthenticated]
         [HttpPost]
         public DtoLike Like(DtoLike like)
@@ -140,7 +130,7 @@ namespace SimpleSocialNetwork.Controllers
                 var modelLike = new ModelLike()
                 {
                     FeedId = like.feedId,
-                    ProfileId = context.profiles.Where(profile => profile.Name == like.profileName && profile.Token == like.token).FirstOrDefault().Id
+                    ProfileId = context.profiles.FirstOrDefault(profile => profile.Name == like.profileName && profile.Token == like.token).Id
                 };
                 context.likes.Add(modelLike);
                 context.SaveChanges();
@@ -163,7 +153,7 @@ namespace SimpleSocialNetwork.Controllers
         {
             using (var context = new SimpleSocialNetworkDbContext())
             {
-                var model = context.likes.Where(l => l.Id == like.id).FirstOrDefault();
+                var model = context.likes.FirstOrDefault(l => l.Id == like.id);
                 like.feedId = model.FeedId;
                 like.profileName = model.Profile.Name;
                 context.likes.Remove(model);

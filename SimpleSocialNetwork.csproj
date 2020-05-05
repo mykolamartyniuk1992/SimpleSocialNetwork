@@ -12,7 +12,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SimpleSocialNetwork</RootNamespace>
     <AssemblyName>SimpleSocialNetwork</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <UseIISExpress>true</UseIISExpress>
     <Use64BitIISExpress />
     <IISExpressSSLPort />
@@ -156,13 +156,10 @@
     <Compile Include="App_Code\Database\Dto\DtoLike.cs" />
     <Compile Include="App_Code\Database\Dto\DtoProfile.cs" />
     <Compile Include="App_Code\Database\EntityConfigurations\ConfigLike.cs" />
-    <Compile Include="App_Code\Database\Models\ModelFeed.cs" />
     <Compile Include="App_Code\Database\EntityConfigurations\ConfigFeed.cs" />
-    <Compile Include="App_Code\Database\Models\ModelLike.cs" />
     <Compile Include="Hubs\FeedHub.cs" />
     <Compile Include="App_Code\IsAuthenticated.cs" />
     <Compile Include="App_Code\PasswordManager.cs" />
-    <Compile Include="App_Code\Database\Models\ModelProfile.cs" />
     <Compile Include="App_Code\Database\EntityConfigurations\ConfigProfile.cs" />
     <Compile Include="App_Code\Database\SimpleSocialNetworkDbContext.cs" />
     <Compile Include="Startup.cs" />
@@ -226,7 +223,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="App_Code\Hubs\" />
     <Folder Include="App_Data\" />
   </ItemGroup>
   <ItemGroup>
@@ -251,6 +247,12 @@
     <EmbeddedResource Include="Migrations\201806301002514_LikesAdded.resx">
       <DependentUpon>201806301002514_LikesAdded.cs</DependentUpon>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SimpleSocialNetwork.Models\SimpleSocialNetwork.Models.csproj">
+      <Project>{7ecc895d-95e3-4037-9176-71982935386c}</Project>
+      <Name>SimpleSocialNetwork.Models</Name>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>

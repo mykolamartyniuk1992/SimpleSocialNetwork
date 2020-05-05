@@ -1,10 +1,11 @@
 ﻿using SimpleSocialNetwork.App_Code.Database.EntityConfigurations;
-using SimpleSocialNetwork.App_Code.Database.Models;
+using SimpleSocialNetwork.Models;
 using System;
 using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
 using System.Web;
+using SimpleSocialNetwork.Database.EntityConfigurations;
 
 namespace SimpleSocialNetwork.App_Code.Database
 {

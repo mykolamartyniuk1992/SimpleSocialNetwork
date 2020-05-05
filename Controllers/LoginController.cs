@@ -1,12 +1,12 @@
 ﻿using SimpleSocialNetwork.App_Code;
 using SimpleSocialNetwork.App_Code.Database;
-using SimpleSocialNetwork.App_Code.Database.Dto;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Web.Http;
+using SimpleSocialNetwork.Database.Dto;
 
 namespace SimpleSocialNetwork.Controllers
 {

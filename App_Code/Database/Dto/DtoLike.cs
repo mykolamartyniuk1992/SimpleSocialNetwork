@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Web;
+﻿using System.Runtime.Serialization;
 
-namespace SimpleSocialNetwork.App_Code.Database.Dto
+namespace SimpleSocialNetwork.Database.Dto
 {
     public class DtoLike
     {

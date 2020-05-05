@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using System.Runtime.Serialization;
-using System.Web;
 
-namespace SimpleSocialNetwork.App_Code.Database.Dto
+namespace SimpleSocialNetwork.Database.Dto
 {
     public class DtoFeed
     {

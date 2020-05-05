@@ -1,9 +1,9 @@
-﻿using SimpleSocialNetwork.App_Code.Database.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data.Entity.ModelConfiguration;
 using System.Linq;
 using System.Web;
+using SimpleSocialNetwork.Models;
 
 namespace SimpleSocialNetwork.App_Code.Database.EntityConfigurations
 {

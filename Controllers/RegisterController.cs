@@ -6,8 +6,8 @@ using System.Net.Http;
 using System.Web.Http;
 using SimpleSocialNetwork.App_Code;
 using SimpleSocialNetwork.App_Code.Database;
-using SimpleSocialNetwork.App_Code.Database.Dto;
-using SimpleSocialNetwork.App_Code.Database.Models;
+using SimpleSocialNetwork.Database.Dto;
+using SimpleSocialNetwork.Models;
 
 namespace SimpleSocialNetwork.Controllers
 {

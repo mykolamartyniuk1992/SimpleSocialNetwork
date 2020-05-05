@@ -4,7 +4,6 @@ using System.Linq;
 using System.Web;
 using Microsoft.AspNet.SignalR;
 using Microsoft.AspNet.SignalR.Hubs;
-using SimpleSocialNetwork.App_Code.Database.Dto;
 
 namespace SimpleSocialNetwork
 {

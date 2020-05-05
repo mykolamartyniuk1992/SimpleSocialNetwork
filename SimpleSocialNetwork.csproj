@@ -248,12 +248,6 @@
       <DependentUpon>201806301002514_LikesAdded.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\SimpleSocialNetwork.Models\SimpleSocialNetwork.Models.csproj">
-      <Project>{7ecc895d-95e3-4037-9176-71982935386c}</Project>
-      <Name>SimpleSocialNetwork.Models</Name>
-    </ProjectReference>
-  </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>

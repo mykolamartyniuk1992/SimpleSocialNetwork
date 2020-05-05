@@ -1,7 +1,7 @@
 ﻿using System.Data.Entity.ModelConfiguration;
 using SimpleSocialNetwork.Models;
 
-namespace SimpleSocialNetwork.Database.EntityConfigurations
+namespace SimpleSocialNetwork.Data.EntityConfigurations
 {
     public class ConfigFeed : EntityTypeConfiguration<ModelFeed>
     {

@@ -1,6 +1,6 @@
 ﻿using System.Runtime.Serialization;
 
-namespace SimpleSocialNetwork.Database.Dto
+namespace SimpleSocialNetwork.Dto
 {
     public class DtoProfile
     {

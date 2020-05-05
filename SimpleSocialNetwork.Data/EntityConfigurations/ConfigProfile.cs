@@ -1,11 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data.Entity.ModelConfiguration;
-using System.Linq;
-using System.Web;
+﻿using System.Data.Entity.ModelConfiguration;
 using SimpleSocialNetwork.Models;
 
-namespace SimpleSocialNetwork.App_Code.Database.EntityConfigurations
+namespace SimpleSocialNetwork.Data.EntityConfigurations
 {
     public class ConfigProfile : EntityTypeConfiguration<ModelProfile>
     {

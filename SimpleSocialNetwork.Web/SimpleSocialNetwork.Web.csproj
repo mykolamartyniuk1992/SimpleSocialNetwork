@@ -152,16 +152,9 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="App_Code\Database\Dto\DtoFeed.cs" />
-    <Compile Include="App_Code\Database\Dto\DtoLike.cs" />
-    <Compile Include="App_Code\Database\Dto\DtoProfile.cs" />
-    <Compile Include="App_Code\Database\EntityConfigurations\ConfigLike.cs" />
-    <Compile Include="App_Code\Database\EntityConfigurations\ConfigFeed.cs" />
     <Compile Include="Hubs\FeedHub.cs" />
     <Compile Include="App_Code\IsAuthenticated.cs" />
     <Compile Include="App_Code\PasswordManager.cs" />
-    <Compile Include="App_Code\Database\EntityConfigurations\ConfigProfile.cs" />
-    <Compile Include="App_Code\Database\SimpleSocialNetworkDbContext.cs" />
     <Compile Include="Startup.cs" />
     <Compile Include="App_Start\WebApiConfig.cs" />
     <Compile Include="Controllers\FeedController.cs" />
@@ -249,6 +242,14 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\SimpleSocialNetwork.Data\SimpleSocialNetwork.Data.csproj">
+      <Project>{20fce755-a245-4cd2-97af-f7c4b1c15fda}</Project>
+      <Name>SimpleSocialNetwork.Data</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SimpleSocialNetwork.Dto\SimpleSocialNetwork.Dto.csproj">
+      <Project>{1507f54d-00f9-4aa4-aa48-02cdc3111ee7}</Project>
+      <Name>SimpleSocialNetwork.Dto</Name>
+    </ProjectReference>
     <ProjectReference Include="..\SimpleSocialNetwork.Models\SimpleSocialNetwork.Models.csproj">
       <Project>{7ecc895d-95e3-4037-9176-71982935386c}</Project>
       <Name>SimpleSocialNetwork.Models</Name>

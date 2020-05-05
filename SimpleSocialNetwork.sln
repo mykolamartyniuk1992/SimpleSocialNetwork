@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleSocialNetwork.Models"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleSocialNetwork.Web", "SimpleSocialNetwork.Web\SimpleSocialNetwork.Web.csproj", "{07266E00-5D93-4255-A4D3-28929561167C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleSocialNetwork.Data", "SimpleSocialNetwork.Data\SimpleSocialNetwork.Data.csproj", "{20FCE755-A245-4CD2-97AF-F7C4B1C15FDA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleSocialNetwork.Dto", "SimpleSocialNetwork.Dto\SimpleSocialNetwork.Dto.csproj", "{1507F54D-00F9-4AA4-AA48-02CDC3111EE7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{07266E00-5D93-4255-A4D3-28929561167C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{07266E00-5D93-4255-A4D3-28929561167C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{07266E00-5D93-4255-A4D3-28929561167C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{20FCE755-A245-4CD2-97AF-F7C4B1C15FDA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{20FCE755-A245-4CD2-97AF-F7C4B1C15FDA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{20FCE755-A245-4CD2-97AF-F7C4B1C15FDA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{20FCE755-A245-4CD2-97AF-F7C4B1C15FDA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1507F54D-00F9-4AA4-AA48-02CDC3111EE7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1507F54D-00F9-4AA4-AA48-02CDC3111EE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1507F54D-00F9-4AA4-AA48-02CDC3111EE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1507F54D-00F9-4AA4-AA48-02CDC3111EE7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

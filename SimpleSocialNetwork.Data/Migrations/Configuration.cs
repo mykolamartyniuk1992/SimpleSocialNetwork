@@ -1,14 +1,14 @@
-using SimpleSocialNetwork.Data.DbContexts;
 using System.Data.Entity.Migrations;
+using SimpleSocialNetwork.Data.DbContexts;
 
-namespace SimpleSocialNetwork.Migrations
+namespace SimpleSocialNetwork.Data.Migrations
 {
     internal sealed class Configuration : DbMigrationsConfiguration<SimpleSocialNetworkDbContext>
     {
         public Configuration()
         {
             AutomaticMigrationsEnabled = false;
-            ContextKey = "SimpleSocialNetwork.App_Code.Database.SimpleSocialNetworkDbContext";
+            ContextKey = "SimpleSocialNetwork.Data.DbContexts.SimpleSocialNetworkDbContext";
         }
 
         protected override void Seed(SimpleSocialNetworkDbContext context)

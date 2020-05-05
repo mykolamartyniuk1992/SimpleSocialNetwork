@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.Serialization;
 
-namespace SimpleSocialNetwork.Database.Dto
+namespace SimpleSocialNetwork.Dto
 {
     public class DtoFeed
     {

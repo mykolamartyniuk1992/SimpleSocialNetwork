@@ -3,7 +3,7 @@ using System.Net.Http;
 using System.Web;
 using System.Web.Http.Controllers;
 using System.Web.Http.Filters;
-using SimpleSocialNetwork.App_Code.Database;
+using SimpleSocialNetwork.Data.DbContexts;
 
 namespace SimpleSocialNetwork
 {

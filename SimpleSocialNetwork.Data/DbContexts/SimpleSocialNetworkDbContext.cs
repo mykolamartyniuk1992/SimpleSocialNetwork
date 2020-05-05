@@ -1,13 +1,8 @@
-﻿using SimpleSocialNetwork.App_Code.Database.EntityConfigurations;
+﻿using System.Data.Entity;
+using SimpleSocialNetwork.Data.EntityConfigurations;
 using SimpleSocialNetwork.Models;
-using System;
-using System.Collections.Generic;
-using System.Data.Entity;
-using System.Linq;
-using System.Web;
-using SimpleSocialNetwork.Database.EntityConfigurations;
 
-namespace SimpleSocialNetwork.App_Code.Database
+namespace SimpleSocialNetwork.Data.DbContexts
 {
     public class SimpleSocialNetworkDbContext : DbContext
     {

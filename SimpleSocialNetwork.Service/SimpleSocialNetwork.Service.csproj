@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{7ECC895D-95E3-4037-9176-71982935386C}</ProjectGuid>
+    <ProjectGuid>{9722817B-22A3-44FF-BBA0-72F61DB2F716}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>SimpleSocialNetwork.Models</RootNamespace>
-    <AssemblyName>SimpleSocialNetwork.Models</AssemblyName>
+    <RootNamespace>SimpleSocialNetwork.Service</RootNamespace>
+    <AssemblyName>SimpleSocialNetwork.Service</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -41,11 +41,26 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="IEntity.cs" />
-    <Compile Include="ModelFeed.cs" />
-    <Compile Include="ModelLike.cs" />
-    <Compile Include="ModelProfile.cs" />
+    <Compile Include="ModelFeedService\IModelFeedService.cs" />
+    <Compile Include="ModelFeedService\ModelFeedService.cs" />
+    <Compile Include="ModelProfileService\IModelProfileService.cs" />
+    <Compile Include="ModelProfileService\ModelProfileService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SimpleSocialNetwork.Data\SimpleSocialNetwork.Data.csproj">
+      <Project>{20fce755-a245-4cd2-97af-f7c4b1c15fda}</Project>
+      <Name>SimpleSocialNetwork.Data</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SimpleSocialNetwork.Dto\SimpleSocialNetwork.Dto.csproj">
+      <Project>{1507f54d-00f9-4aa4-aa48-02cdc3111ee7}</Project>
+      <Name>SimpleSocialNetwork.Dto</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SimpleSocialNetwork.Models\SimpleSocialNetwork.Models.csproj">
+      <Project>{7ecc895d-95e3-4037-9176-71982935386c}</Project>
+      <Name>SimpleSocialNetwork.Models</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

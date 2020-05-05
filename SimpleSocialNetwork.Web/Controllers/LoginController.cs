@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Web.Http;
-using SimpleSocialNetwork.Data.DbContexts;
 using SimpleSocialNetwork.Dto;
+using SimpleSocialNetwork.Service.ModelProfileService;
 
 namespace SimpleSocialNetwork.Controllers
 {
@@ -13,32 +12,21 @@ namespace SimpleSocialNetwork.Controllers
         [HttpPost]
         public DtoProfile Login(DtoProfile profile)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
+            try
             {
-                var profileFounded = context.profiles.Where(p => p.Name == profile.name && p.Password == profile.password).FirstOrDefault();
-                if (profileFounded != null)
-                {
-                    profileFounded.Token = profile.token = Guid.NewGuid().ToString();
-                    context.SaveChanges();
-                    return profile;
-                }
-                else throw new HttpResponseException(new HttpResponseMessage(HttpStatusCode.Forbidden) { Content = new StringContent("user not found!") });
+                profile.token = new ModelProfileService().Login(profile.name, profile.password).ToString();
+                return profile;
+            }
+            catch (Exception e)
+            {
+                throw new HttpResponseException(new HttpResponseMessage(HttpStatusCode.Forbidden) { Content = new StringContent(e.Message) });
             }
         }
 
         [HttpPost]
-        public bool IsLoggedIn(DtoProfile profile)
+        public bool IsRegistered(DtoProfile profile)
         {
-            using ( 
-                    var context = new SimpleSocialNetworkDbContext())
-            {
-                var profileFounded = context.profiles.Where(p => p.Name == profile.name && p.Token == profile.token).FirstOrDefault();
-                if (profileFounded != null)
-                {
-                    return true;
-                }
-                else return false;
-            }
+            return new ModelProfileService().IsRegistered(profile.name, profile.password);
         }
     }
 }

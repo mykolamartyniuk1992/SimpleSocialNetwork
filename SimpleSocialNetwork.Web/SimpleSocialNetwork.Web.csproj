@@ -163,35 +163,6 @@
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
-    <Compile Include="Migrations\201806282028089_Init.cs" />
-    <Compile Include="Migrations\201806282028089_Init.Designer.cs">
-      <DependentUpon>201806282028089_Init.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\201806291227080_FeedTableCreated.cs" />
-    <Compile Include="Migrations\201806291227080_FeedTableCreated.Designer.cs">
-      <DependentUpon>201806291227080_FeedTableCreated.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\201806291438444_AddedDateAddForFeed.cs" />
-    <Compile Include="Migrations\201806291438444_AddedDateAddForFeed.Designer.cs">
-      <DependentUpon>201806291438444_AddedDateAddForFeed.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\201806291623490_AddedParentIdForFeed.cs" />
-    <Compile Include="Migrations\201806291623490_AddedParentIdForFeed.Designer.cs">
-      <DependentUpon>201806291623490_AddedParentIdForFeed.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\201806291628220_SetParentIdFeedNullable.cs" />
-    <Compile Include="Migrations\201806291628220_SetParentIdFeedNullable.Designer.cs">
-      <DependentUpon>201806291628220_SetParentIdFeedNullable.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\201806291637061_AddedChildrenCollectionForFeed.cs" />
-    <Compile Include="Migrations\201806291637061_AddedChildrenCollectionForFeed.Designer.cs">
-      <DependentUpon>201806291637061_AddedChildrenCollectionForFeed.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\201806301002514_LikesAdded.cs" />
-    <Compile Include="Migrations\201806301002514_LikesAdded.Designer.cs">
-      <DependentUpon>201806301002514_LikesAdded.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -219,40 +190,13 @@
     <Folder Include="App_Data\" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Migrations\201806282028089_Init.resx">
-      <DependentUpon>201806282028089_Init.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Migrations\201806291227080_FeedTableCreated.resx">
-      <DependentUpon>201806291227080_FeedTableCreated.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Migrations\201806291438444_AddedDateAddForFeed.resx">
-      <DependentUpon>201806291438444_AddedDateAddForFeed.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Migrations\201806291623490_AddedParentIdForFeed.resx">
-      <DependentUpon>201806291623490_AddedParentIdForFeed.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Migrations\201806291628220_SetParentIdFeedNullable.resx">
-      <DependentUpon>201806291628220_SetParentIdFeedNullable.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Migrations\201806291637061_AddedChildrenCollectionForFeed.resx">
-      <DependentUpon>201806291637061_AddedChildrenCollectionForFeed.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Migrations\201806301002514_LikesAdded.resx">
-      <DependentUpon>201806301002514_LikesAdded.cs</DependentUpon>
-    </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\SimpleSocialNetwork.Data\SimpleSocialNetwork.Data.csproj">
-      <Project>{20fce755-a245-4cd2-97af-f7c4b1c15fda}</Project>
-      <Name>SimpleSocialNetwork.Data</Name>
-    </ProjectReference>
     <ProjectReference Include="..\SimpleSocialNetwork.Dto\SimpleSocialNetwork.Dto.csproj">
       <Project>{1507f54d-00f9-4aa4-aa48-02cdc3111ee7}</Project>
       <Name>SimpleSocialNetwork.Dto</Name>
     </ProjectReference>
-    <ProjectReference Include="..\SimpleSocialNetwork.Models\SimpleSocialNetwork.Models.csproj">
-      <Project>{7ecc895d-95e3-4037-9176-71982935386c}</Project>
-      <Name>SimpleSocialNetwork.Models</Name>
+    <ProjectReference Include="..\SimpleSocialNetwork.Service\SimpleSocialNetwork.Service.csproj">
+      <Project>{9722817B-22A3-44FF-BBA0-72F61DB2F716}</Project>
+      <Name>SimpleSocialNetwork.Service</Name>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>

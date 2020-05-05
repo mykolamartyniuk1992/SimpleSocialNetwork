@@ -195,9 +195,7 @@
                     $http({
                         method: 'POST',
                         url: 'http://localhost:58366/api/feed/dislike',
-                        data: {
-                            id: like.id
-                        }
+                        data: like.id
                     }).then(function (response) {
                         this.liked = false;
                         removeLike(response.data);

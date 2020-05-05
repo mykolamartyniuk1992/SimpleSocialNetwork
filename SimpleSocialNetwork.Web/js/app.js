@@ -4,7 +4,7 @@ app.run(['$rootScope', '$http', '$cookies', function ($rootScope, $http, $cookie
     // cheching if user has logged in alredy and have token in cookies
     $http({
         method: 'POST',
-        url: 'http://localhost:58366/api/login/isLoggedIn',
+        url: 'http://localhost:58366/api/login/isRegistered',
         data: {
             name: $cookies.get('name'),
             token: $cookies.get('token')

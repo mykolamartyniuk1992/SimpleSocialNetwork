@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace SimpleSocialNetwork.Models
 {
-    public class ModelProfile
+    public class ModelProfile : IEntity
     {
         public int Id { get; set; }
         public string Name { get; set; }

@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Web.Http;
-using SimpleSocialNetwork.Data.DbContexts;
 using SimpleSocialNetwork.Dto;
-using SimpleSocialNetwork.Models;
+using SimpleSocialNetwork.Service.ModelProfileService;
 
 namespace SimpleSocialNetwork.Controllers
 {
@@ -11,17 +10,7 @@ namespace SimpleSocialNetwork.Controllers
         [HttpPost]
         public void Register(DtoProfile newProfile)
         {
-            ModelProfile modelProfile = new ModelProfile()
-            {
-                DateAdd = DateTime.Now,
-                Name = newProfile.name,
-                Password = newProfile.password
-            };
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                context.profiles.Add(modelProfile);
-                context.SaveChanges();
-            }
+            new ModelProfileService().Register(newProfile);
         }
     }
 }

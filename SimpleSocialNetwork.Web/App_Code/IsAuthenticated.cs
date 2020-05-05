@@ -3,7 +3,7 @@ using System.Net.Http;
 using System.Web;
 using System.Web.Http.Controllers;
 using System.Web.Http.Filters;
-using SimpleSocialNetwork.Data.DbContexts;
+using SimpleSocialNetwork.Service.ModelProfileService;
 
 namespace SimpleSocialNetwork
 {
@@ -16,12 +16,10 @@ namespace SimpleSocialNetwork
             {
                 var name = cookies["name"];
                 var token = cookies["token"];
-                using (var context = new SimpleSocialNetworkDbContext())
+                bool isAuthenticated = new ModelProfileService().IsAuthenticated(name.Value, token.Value);
+                if (!isAuthenticated)
                 {
-                    if (!context.profiles.Any(profile => profile.Name == name.Value && profile.Token == token.Value))
-                    {
-                        throw new HttpException("no such user!");
-                    }
+                    throw new HttpException("no such user!");
                 }
             }
             else throw new HttpException("cookies is empty!");

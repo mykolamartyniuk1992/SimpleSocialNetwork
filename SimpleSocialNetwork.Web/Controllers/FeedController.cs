@@ -4,10 +4,9 @@ using System.Linq;
 using System.Net.Http;
 using System.Web;
 using System.Web.Http;
-using SimpleSocialNetwork.Data.DbContexts;
 using SimpleSocialNetwork.Dto;
 using SimpleSocialNetwork.Hubs;
-using SimpleSocialNetwork.Models;
+using SimpleSocialNetwork.Service.ModelFeedService;
 
 namespace SimpleSocialNetwork.Controllers
 {
@@ -23,65 +22,23 @@ namespace SimpleSocialNetwork.Controllers
 
         [IsAuthenticated]
         [HttpPost]
-        public List<DtoFeed> GetFeed(DtoProfile profile)
+        public IEnumerable<DtoFeed> GetFeed(DtoProfile profile)
         {
-            List <DtoFeed> dtoFeed = new List<DtoFeed>();
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                var feed = context.feed.ToList();
-                foreach(var f in feed)
-                {
-                    var dtoLikes = new List<DtoLike>();
-                    foreach (var l in f.Likes)
-                    {
-                        var dtoLike = new DtoLike()
-                        {
-                            id = l.Id,
-                            feedId = l.FeedId,
-                            profileName = l.Profile.Name
-                        };
-                        dtoLikes.Add(dtoLike);
-                    }
-                    dtoFeed.Add(new DtoFeed()
-                    {
-                        name = f.Profile.Name,
-                        text = f.Text,
-                        date = f.DateAdd.ToString(),
-                        id = f.Id,
-                        parentId = f.ParentId,
-                        likes = dtoLikes
-                    });
-                }
-            }
-            return dtoFeed;
+            return new ModelFeedService().GetFeed();
         }
 
         [IsAuthenticated]
         [HttpPost]
         public int AddFeed(DtoFeed dtoFeed)
         {
-            ModelFeed modelFeed;
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                modelFeed = new ModelFeed()
-                {
-                    DateAdd = DateTime.Now,
-                    ProfileId = context.profiles.FirstOrDefault(p => p.Name == dtoFeed.name && p.Token == dtoFeed.token).Id,
-                    Text = dtoFeed.text,
-                    ParentId = dtoFeed.parentId
-                };
-                context.feed.Add(modelFeed);
-                context.SaveChanges();
-            }
-
-            dtoFeed.id = modelFeed.Id;
+            dtoFeed.id = new ModelFeedService().AddFeed(dtoFeed);
             // Получаем контекст хаба
             var cntxt =
                 Microsoft.AspNet.SignalR.GlobalHost.ConnectionManager.GetHubContext<FeedHub>();
             // отправляем сообщение
             cntxt.Clients.All.newFeed(dtoFeed);
 
-            return modelFeed.Id;
+            return dtoFeed.id;
         }
 
         [IsAuthenticated]
@@ -92,14 +49,7 @@ namespace SimpleSocialNetwork.Controllers
             var name = cookies["name"];
             var token = cookies["token"];
             if (dtoFeed.name != name.Value || dtoFeed.token != token.Value) throw new HttpException(403, "you are not the author of this post!");
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                var modelFeed = context.feed.FirstOrDefault(f => f.Id == dtoFeed.id);
-
-                RecoursiveDelete(modelFeed, context);
-
-                context.SaveChanges();
-            }
+            new ModelFeedService().DeleteFeed(dtoFeed.id);
 
             // Получаем контекст хаба
             var cntxt =
@@ -108,35 +58,11 @@ namespace SimpleSocialNetwork.Controllers
             cntxt.Clients.All.deleteFeed(dtoFeed);
         }
 
-        private void RecoursiveDelete(ModelFeed parent, SimpleSocialNetworkDbContext context)
-        {
-            if (parent.Children.Count != 0)
-            {
-                foreach (var child in parent.Children.ToList())
-                {
-                    RecoursiveDelete(child, context);
-                }
-            }
-            context.likes.RemoveRange(context.likes.Where(l => l.FeedId == parent.Id));
-            context.feed.Remove(parent);
-        }
-
         [IsAuthenticated]
         [HttpPost]
         public DtoLike Like(DtoLike like)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                var modelLike = new ModelLike()
-                {
-                    FeedId = like.feedId,
-                    ProfileId = context.profiles.FirstOrDefault(profile => profile.Name == like.profileName && profile.Token == like.token).Id
-                };
-                context.likes.Add(modelLike);
-                context.SaveChanges();
-                like.id = modelLike.Id;
-                
-            }
+            like.id = new ModelFeedService().Like(like);
 
             // Получаем контекст хаба
             var cntxt =
@@ -149,16 +75,9 @@ namespace SimpleSocialNetwork.Controllers
 
         [IsAuthenticated]
         [HttpPost]
-        public void Dislike(DtoLike like)
+        public void Dislike(int likeId)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                var model = context.likes.FirstOrDefault(l => l.Id == like.id);
-                like.feedId = model.FeedId;
-                like.profileName = model.Profile.Name;
-                context.likes.Remove(model);
-                context.SaveChanges();
-            }
+            var like = new ModelFeedService().Dislike(likeId);
              
             // Получаем контекст хаба
             var cntxt =

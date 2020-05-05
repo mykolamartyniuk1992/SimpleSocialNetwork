@@ -1,6 +1,6 @@
 ﻿namespace SimpleSocialNetwork.Models
 {
-    public class ModelLike
+    public class ModelLike : IEntity
     {
         public int Id { get; set; }
         public int FeedId { get; set; }

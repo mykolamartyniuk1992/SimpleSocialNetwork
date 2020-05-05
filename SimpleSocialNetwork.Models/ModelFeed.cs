@@ -5,7 +5,7 @@ using System.Web;
 
 namespace SimpleSocialNetwork.Models
 {
-    public class ModelFeed
+    public class ModelFeed : IEntity
     {
         public int Id { get; set; }
         public int? ParentId { get; set; }

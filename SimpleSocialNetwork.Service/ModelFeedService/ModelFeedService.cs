@@ -6,6 +6,7 @@ using SimpleSocialNetwork.Models;
 
 namespace SimpleSocialNetwork.Service.ModelFeedService
 {
+    // my test commit for CI
     public class ModelFeedService : IModelFeedService
     {
         private IRepository<ModelFeed> feedRepo;

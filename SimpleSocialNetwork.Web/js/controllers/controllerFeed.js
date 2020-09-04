@@ -63,6 +63,7 @@
             token: $cookies.get('token')
         }
     }).then(function (response) {
+
         console.log('feed response', response);
         let ulMessages = document.getElementById("ulMessages");
         response.data.forEach(function (item) {

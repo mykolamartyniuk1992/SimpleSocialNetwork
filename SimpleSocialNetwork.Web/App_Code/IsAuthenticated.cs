@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Net.Http;
 using System.Web;
 using System.Web.Http.Controllers;
@@ -7,6 +8,7 @@ using SimpleSocialNetwork.Service.ModelProfileService;
 
 namespace SimpleSocialNetwork
 {
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = true, AllowMultiple = false)]
     public class IsAuthenticated : ActionFilterAttribute
     {
         public override void OnActionExecuting(HttpActionContext actionContext)

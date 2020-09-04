@@ -28,5 +28,11 @@ namespace SimpleSocialNetwork.Controllers
         {
             return new ModelProfileService().IsRegistered(profile.name, profile.password);
         }
+
+        [HttpPost]
+        public bool IsAuthenticated(DtoProfile profile)
+        {
+            return new ModelProfileService().IsAuthenticated(profile.name, profile.token);
+        }
     }
 }

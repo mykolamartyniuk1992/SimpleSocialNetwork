@@ -10,58 +10,42 @@ using SimpleSocialNetwork.Models;
 
 namespace SimpleSocialNetwork.Data.Repositories
 {
-    public class ModelProfileRepository : IRepository<ModelProfile>
+    public class ModelProfileRepository : Repository<ModelProfile>
     {
-        public ModelProfile Add(ModelProfile model)
+        public override ModelProfile Add(ModelProfile model)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                return context.profiles.Add(model);
-            }
+            var modelProfile = context.profiles.Add(model);
+            context.SaveChanges();
+            return modelProfile;
         }
 
-        public void Delete(ModelProfile model)
+        public override void Delete(ModelProfile model)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                context.profiles.Attach(model);
-                context.profiles.Remove(model);
-                context.SaveChanges();
-            }
+            context.profiles.Attach(model);
+            context.profiles.Remove(model);
+            context.SaveChanges();
         }
 
-        public void Update(ModelProfile model)
+        public override void Update(ModelProfile model)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                context.profiles.Attach(model);
-                context.Entry(model).State = EntityState.Modified;
-                context.SaveChanges();
-            }
+            context.profiles.Attach(model);
+            context.Entry(model).State = EntityState.Modified;
+            context.SaveChanges();
         }
 
-        public ModelProfile FirstOrDefault(Expression<Func<ModelProfile, bool>> predicate)
+        public override ModelProfile FirstOrDefault(Expression<Func<ModelProfile, bool>> predicate)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                return context.profiles.FirstOrDefault(predicate);
-            }
+            return context.profiles.FirstOrDefault(predicate);
         }
 
-        public IEnumerable<ModelProfile> GetAll()
+        public override IQueryable<ModelProfile> GetAll()
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                return context.profiles.ToList();
-            }
+            return context.profiles;
         }
 
-        public IEnumerable<ModelProfile> Where(Expression<Func<ModelProfile, bool>> predicate)
+        public override IQueryable<ModelProfile> Where(Expression<Func<ModelProfile, bool>> predicate)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                return context.profiles.Where(predicate);
-            }
+            return context.profiles.Where(predicate);
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using SimpleSocialNetwork.Data.Repositories;
 using SimpleSocialNetwork.Dto;
 using SimpleSocialNetwork.Models;
@@ -9,15 +10,15 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
     // my test commit for CI
     public class ModelFeedService : IModelFeedService
     {
-        private IRepository<ModelFeed> feedRepo;
-        private IRepository<ModelLike> likeRepo;
-        private IRepository<ModelProfile> profileRepo;
+        private static IRepository<ModelFeed> feedRepo;
+        private static IRepository<ModelLike> likeRepo;
+        private static IRepository<ModelProfile> profileRepo;
 
         public ModelFeedService()
         {
-            this.feedRepo = new ModelFeedRepository();
-            this.likeRepo = new ModelLikeRepository();
-            this.profileRepo = new ModelProfileRepository();
+            feedRepo = new ModelFeedRepository();
+            likeRepo = new ModelLikeRepository();
+            profileRepo = new ModelProfileRepository();
         }
 
         public ModelFeedService(
@@ -25,21 +26,21 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
             IRepository<ModelLike> likeRepo,
             IRepository<ModelProfile> profileRepo)
         {
-            this.feedRepo = feedRepo;
-            this.likeRepo = likeRepo;
-            this.profileRepo = profileRepo;
+            ModelFeedService.feedRepo = feedRepo;
+            ModelFeedService.likeRepo = likeRepo;
+            ModelFeedService.profileRepo = profileRepo;
         }
 
         public IEnumerable<DtoFeed> GetFeed()
         {
             var dtoFeed = new List<DtoFeed>();
 
-            var feed = feedRepo.GetAll();
+            var feed = feedRepo.GetAll().ToList();
             foreach (var f in feed)
             {
                 var dtoLikes = new List<DtoLike>();
-                var likes = likeRepo.Where(l => l.FeedId == f.Id);
-                foreach (var l in likes)
+                //var likes = likeRepo.Where(l => l.FeedId == f.Id);
+                foreach (var l in f.Likes)
                 {
                     var dtoLike = new DtoLike()
                     {
@@ -80,7 +81,7 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
         public void DeleteFeed(int feedId)
         {
             // TODO: someting wrong with this func
-            (this.feedRepo as ModelFeedRepository).RecoursiveDelete(feedId);
+            (feedRepo as ModelFeedRepository).RecoursiveDelete(feedId);
         }
 
         public int Like(DtoLike like)

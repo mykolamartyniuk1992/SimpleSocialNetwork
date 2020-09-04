@@ -1,5 +1,5 @@
 ﻿app.controller('controllerLogin', ['$scope', '$cookies', '$http', function ($scope, $cookies, $http) {
-
+    debugger;
     $scope.login = function () {
         let pass = SHA256($scope.profilePassword);
         let profile = { name: $scope.profileName, password: pass };

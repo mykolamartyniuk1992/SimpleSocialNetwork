@@ -10,24 +10,21 @@ using SimpleSocialNetwork.Service.ModelFeedService;
 
 namespace SimpleSocialNetwork.Controllers
 {
-    
+    [IsAuthenticated]
     public class FeedController : ApiController
     {
-        [IsAuthenticated]
-        [HttpPost]
-        public void Hello()
+        [HttpGet]
+        public string Hello()
         {
-
+            return "Hello there";
         }
 
-        [IsAuthenticated]
         [HttpPost]
         public IEnumerable<DtoFeed> GetFeed(DtoProfile profile)
         {
             return new ModelFeedService().GetFeed();
         }
 
-        [IsAuthenticated]
         [HttpPost]
         public int AddFeed(DtoFeed dtoFeed)
         {
@@ -41,7 +38,6 @@ namespace SimpleSocialNetwork.Controllers
             return dtoFeed.id;
         }
 
-        [IsAuthenticated]
         [HttpPost]
         public void DeleteFeed(DtoFeed dtoFeed)
         {
@@ -58,32 +54,30 @@ namespace SimpleSocialNetwork.Controllers
             cntxt.Clients.All.deleteFeed(dtoFeed);
         }
 
-        [IsAuthenticated]
         [HttpPost]
-        public DtoLike Like(DtoLike like)
+        public DtoLike Like(DtoLike dtoLike)
         {
-            like.id = new ModelFeedService().Like(like);
+            dtoLike.id = new ModelFeedService().Like(dtoLike);
 
             // Получаем контекст хаба
             var cntxt =
                 Microsoft.AspNet.SignalR.GlobalHost.ConnectionManager.GetHubContext<FeedHub>();
             // отправляем сообщение
-            cntxt.Clients.All.like(like);
+            cntxt.Clients.All.like(dtoLike);
 
-            return like;
+            return dtoLike;
         }
 
-        [IsAuthenticated]
         [HttpPost]
-        public void Dislike(int likeId)
+        public void Dislike(DtoLike dtoLike)
         {
-            var like = new ModelFeedService().Dislike(likeId);
+            new ModelFeedService().Dislike(dtoLike.id);
              
             // Получаем контекст хаба
             var cntxt =
                 Microsoft.AspNet.SignalR.GlobalHost.ConnectionManager.GetHubContext<FeedHub>();
             // отправляем сообщение
-            cntxt.Clients.All.unlike(like);
+            cntxt.Clients.All.unlike(dtoLike);
         }
     }
 }

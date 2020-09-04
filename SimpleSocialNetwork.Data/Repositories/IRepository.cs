@@ -1,6 +1,7 @@
 ﻿using SimpleSocialNetwork.Models;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 
 namespace SimpleSocialNetwork.Data.Repositories
@@ -15,8 +16,8 @@ namespace SimpleSocialNetwork.Data.Repositories
 
         TModel FirstOrDefault(Expression<Func<TModel, bool>> predicate);
 
-        IEnumerable<TModel> Where(Expression<Func<TModel, bool>> predicate);
+        IQueryable<TModel> Where(Expression<Func<TModel, bool>> predicate);
 
-        IEnumerable<TModel> GetAll();
+        IQueryable<TModel> GetAll();
     }
 }

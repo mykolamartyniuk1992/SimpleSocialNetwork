@@ -8,59 +8,41 @@ using SimpleSocialNetwork.Models;
 
 namespace SimpleSocialNetwork.Data.Repositories
 {
-    public class ModelLikeRepository : IRepository<ModelLike>
+    public class ModelLikeRepository : Repository<ModelLike>
     {
-        public ModelLike Add(ModelLike model)
+        public override ModelLike Add(ModelLike model)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                context.likes.Add(model);
-                context.SaveChanges();
-                return model;
-            }
+            context.likes.Add(model);
+            context.SaveChanges();
+            return model;
         }
 
-        public void Delete(ModelLike model)
+        public override void Delete(ModelLike model)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                context.likes.Attach(model);
-                context.likes.Remove(model);
-                context.SaveChanges();
-            }
+            context.likes.Attach(model);
+            context.likes.Remove(model);
+            context.SaveChanges();
         }
 
-        public void Update(ModelLike model)
+        public override void Update(ModelLike model)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                context.likes.Attach(model);
-                context.Entry(model).State = EntityState.Modified;
-            }
+            context.likes.Attach(model);
+            context.Entry(model).State = EntityState.Modified;
         }
 
-        public ModelLike FirstOrDefault(Expression<Func<ModelLike, bool>> predicate)
+        public override ModelLike FirstOrDefault(Expression<Func<ModelLike, bool>> predicate)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                return context.likes.FirstOrDefault(predicate);
-            }
+            return context.likes.FirstOrDefault(predicate);
         }
 
-        public IEnumerable<ModelLike> GetAll()
+        public override IQueryable<ModelLike> GetAll()
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                return context.likes.ToList();
-            }
+            return context.likes;
         }
 
-        public IEnumerable<ModelLike> Where(Expression<Func<ModelLike, bool>> predicate)
+        public override IQueryable<ModelLike> Where(Expression<Func<ModelLike, bool>> predicate)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                return context.likes.Where(predicate);
-            }
+            return context.likes.Where(predicate);
         }
     }
 }

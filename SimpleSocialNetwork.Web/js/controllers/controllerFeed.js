@@ -1,5 +1,5 @@
 ﻿app.controller('controllerFeed', ['$scope', '$cookies', '$http', function ($scope, $cookies, $http) {
-
+    debugger;
     var $jq;
     try {
         $jq = jQuery.noConflict();
@@ -195,10 +195,9 @@
                     $http({
                         method: 'POST',
                         url: 'http://localhost:58366/api/feed/dislike',
-                        data: like.id
+                        data: like
                     }).then(function (response) {
                         this.liked = false;
-                        removeLike(response.data);
                     }.bind(this));
                 }
                 

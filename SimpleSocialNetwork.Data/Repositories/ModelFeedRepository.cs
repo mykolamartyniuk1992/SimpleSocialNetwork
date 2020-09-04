@@ -10,9 +10,9 @@ using SimpleSocialNetwork.Models;
 
 namespace SimpleSocialNetwork.Data.Repositories
 {
-    public class ModelFeedRepository : IRepository<ModelFeed>
+    public class ModelFeedRepository : Repository<ModelFeed>
     {
-        public ModelFeed Add(ModelFeed model)
+        public override ModelFeed Add(ModelFeed model)
         {
             using (var context = new SimpleSocialNetworkDbContext())
             {
@@ -22,7 +22,7 @@ namespace SimpleSocialNetwork.Data.Repositories
             }
         }
 
-        public void Delete(ModelFeed model)
+        public override void Delete(ModelFeed model)
         {
             using (var context = new SimpleSocialNetworkDbContext())
             {
@@ -32,7 +32,7 @@ namespace SimpleSocialNetwork.Data.Repositories
             }
         }
 
-        public void Update(ModelFeed model)
+        public override void Update(ModelFeed model)
         {
             using (var context = new SimpleSocialNetworkDbContext())
             {
@@ -41,7 +41,7 @@ namespace SimpleSocialNetwork.Data.Repositories
             }
         }
 
-        public ModelFeed FirstOrDefault(Expression<Func<ModelFeed, bool>> predicate)
+        public override ModelFeed FirstOrDefault(Expression<Func<ModelFeed, bool>> predicate)
         {
             using (var context = new SimpleSocialNetworkDbContext())
             {
@@ -49,20 +49,14 @@ namespace SimpleSocialNetwork.Data.Repositories
             }
         }
 
-        public IEnumerable<ModelFeed> GetAll()
+        public override IQueryable<ModelFeed> GetAll()
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                return context.feed.ToList();
-            }
+            return context.feed;
         }
 
-        public IEnumerable<ModelFeed> Where(Expression<Func<ModelFeed, bool>> predicate)
+        public override IQueryable<ModelFeed> Where(Expression<Func<ModelFeed, bool>> predicate)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                return context.feed.Where(predicate);
-            }
+            return context.feed.Where(predicate);
         }
 
         public void RecoursiveDelete(int feedId)

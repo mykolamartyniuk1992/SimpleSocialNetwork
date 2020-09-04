@@ -6,7 +6,9 @@ namespace SimpleSocialNetwork.Data.DbContexts
 {
     public class SimpleSocialNetworkDbContext : DbContext
     {
-        public SimpleSocialNetworkDbContext() : base("SimpleSocialNetworkConnectionString") { }
+        public SimpleSocialNetworkDbContext() : base("SimpleSocialNetworkConnectionString")
+        {
+        }
 
         protected override void OnModelCreating(DbModelBuilder modelBuilder)
         {

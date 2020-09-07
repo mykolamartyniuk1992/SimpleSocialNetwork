@@ -40,14 +40,14 @@ namespace SimpleSocialNetwork.Test.Stub
             return this.profiles.FirstOrDefault(predicate.Compile());
         }
 
-        public IEnumerable<ModelProfile> Where(Expression<Func<ModelProfile, bool>> predicate)
+        public IQueryable<ModelProfile> Where(Expression<Func<ModelProfile, bool>> predicate)
         {
-            return this.profiles.Where(predicate.Compile());
+            return this.profiles.Where(predicate.Compile()).AsQueryable();
         }
 
-        public IEnumerable<ModelProfile> GetAll()
+        public IQueryable<ModelProfile> GetAll()
         {
-            return this.profiles.ToList();
+            return this.profiles.AsQueryable();
         }
     }
 }

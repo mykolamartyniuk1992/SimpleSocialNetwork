@@ -14,39 +14,27 @@ namespace SimpleSocialNetwork.Data.Repositories
     {
         public override ModelFeed Add(ModelFeed model)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                context.feed.Add(model);
-                context.SaveChanges();
-                return model;
-            }
+            context.feed.Add(model);
+            context.SaveChanges();
+            return model;
         }
 
         public override void Delete(ModelFeed model)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                context.feed.Attach(model);
-                context.feed.Remove(model);
-                context.SaveChanges();
-            }
+            context.feed.Attach(model);
+            context.feed.Remove(model);
+            context.SaveChanges();
         }
 
         public override void Update(ModelFeed model)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                context.feed.Attach(model);
-                context.Entry(model).State = EntityState.Modified;
-            }
+            context.feed.Attach(model);
+            context.Entry(model).State = EntityState.Modified;
         }
 
         public override ModelFeed FirstOrDefault(Expression<Func<ModelFeed, bool>> predicate)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                return context.feed.FirstOrDefault(predicate);
-            }
+            return context.feed.FirstOrDefault(predicate);
         }
 
         public override IQueryable<ModelFeed> GetAll()
@@ -61,14 +49,9 @@ namespace SimpleSocialNetwork.Data.Repositories
 
         public void RecoursiveDelete(int feedId)
         {
-            using (var context = new SimpleSocialNetworkDbContext())
-            {
-                var modelFeed = context.feed.FirstOrDefault(f => f.Id == feedId);
-
-                RecoursiveDelete(modelFeed, context);
-
-                context.SaveChanges();
-            }
+            var modelFeed = context.feed.FirstOrDefault(f => f.Id == feedId);
+            RecoursiveDelete(modelFeed, context);
+            context.SaveChanges();
         }
 
         private void RecoursiveDelete(ModelFeed parent, SimpleSocialNetworkDbContext context)

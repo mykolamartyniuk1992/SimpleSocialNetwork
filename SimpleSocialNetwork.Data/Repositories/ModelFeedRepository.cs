@@ -30,6 +30,7 @@ namespace SimpleSocialNetwork.Data.Repositories
         {
             context.feed.Attach(model);
             context.Entry(model).State = EntityState.Modified;
+            context.SaveChanges();
         }
 
         public override ModelFeed FirstOrDefault(Expression<Func<ModelFeed, bool>> predicate)

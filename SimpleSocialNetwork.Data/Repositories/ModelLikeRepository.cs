@@ -28,6 +28,7 @@ namespace SimpleSocialNetwork.Data.Repositories
         {
             context.likes.Attach(model);
             context.Entry(model).State = EntityState.Modified;
+            context.SaveChanges();
         }
 
         public override ModelLike FirstOrDefault(Expression<Func<ModelLike, bool>> predicate)

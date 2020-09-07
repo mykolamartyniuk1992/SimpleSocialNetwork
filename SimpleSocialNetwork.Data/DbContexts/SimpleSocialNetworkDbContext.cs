@@ -6,7 +6,7 @@ namespace SimpleSocialNetwork.Data.DbContexts
 {
     public class SimpleSocialNetworkDbContext : DbContext
     {
-        public SimpleSocialNetworkDbContext() : base("SimpleSocialNetworkConnectionString")
+        public SimpleSocialNetworkDbContext() : base("name=SimpleSocialNetworkConnectionString")
         {
         }
 

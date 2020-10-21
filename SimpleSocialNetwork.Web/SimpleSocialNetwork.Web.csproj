@@ -166,10 +166,6 @@
     <Content Include="js\services.js" />
     <Content Include="Login.html" />
     <Content Include="Register.html" />
-    <None Include="Dockerfile" />
-    <None Include=".dockerignore">
-      <DependentUpon>Dockerfile</DependentUpon>
-    </None>
     <Content Include="NLog.config" />
     <None Include="Properties\PublishProfiles\FolderProfile1.pubxml" />
     <None Include="Properties\PublishProfiles\registry.hub.docker.com_nmartinyuk.pubxml" />

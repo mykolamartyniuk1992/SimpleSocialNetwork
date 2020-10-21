@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Web.Http;
-using SimpleSocialNetwork;
+using System.Web.Mvc;
+using Ninject;
+using Ninject.Modules;
+using Ninject.Web.Mvc;
+using SimpleSocialNetwork.App_Code;
 
 namespace SimpleSocialNetwork
 {
@@ -10,6 +14,9 @@ namespace SimpleSocialNetwork
         {
             GlobalConfiguration.Configure(WebApiConfig.Register);
             GlobalConfiguration.Configuration.Filters.Add(new LogExceptionFilterAttribute());
+            NinjectModule registrations = new NinjectRegistrations();
+            var kernel = new StandardKernel(registrations);
+            DependencyResolver.SetResolver(new NinjectDependencyResolver(kernel));
         }
 
         //in global.asax or global.asax.cs

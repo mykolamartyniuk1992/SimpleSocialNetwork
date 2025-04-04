@@ -14,6 +14,8 @@
                 location = 'Feed.html';
             }
         }, function errorCallback(response) {
+            debugger;
+            console.log(response);
             alert(response.data);
         });
     }

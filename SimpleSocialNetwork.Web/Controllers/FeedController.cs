@@ -12,6 +12,7 @@ using SimpleSocialNetwork.Service.ModelFeedService;
 
 namespace SimpleSocialNetwork.Controllers
 {
+    [RoutePrefix("api/feed")]
     public class FeedController : ApiController
     {
         private readonly IModelFeedService modelFeedService;
@@ -23,6 +24,7 @@ namespace SimpleSocialNetwork.Controllers
         }
 
         [HttpGet]
+        [Route("hello")]
         public string Hello()
         {
             return "Hello there";
@@ -30,6 +32,7 @@ namespace SimpleSocialNetwork.Controllers
 
         [HttpPost]
         [IsAuthenticated]
+        [Route("getfeed")]
         public IEnumerable<DtoFeed> GetFeed(DtoProfile profile)
         {
             return this.modelFeedService.GetFeed();
@@ -37,6 +40,7 @@ namespace SimpleSocialNetwork.Controllers
 
         [HttpPost]
         [IsAuthenticated]
+        [Route("addfeed")]
         public int AddFeed(DtoFeed dtoFeed)
         {
             dtoFeed.id = this.modelFeedService.AddFeed(dtoFeed);
@@ -51,6 +55,7 @@ namespace SimpleSocialNetwork.Controllers
 
         [HttpPost]
         [IsAuthenticated]
+        [Route("deletefeed")]
         public void DeleteFeed(DtoFeed dtoFeed)
         {
             var cookies = Request.Headers.GetCookies().FirstOrDefault();
@@ -68,6 +73,7 @@ namespace SimpleSocialNetwork.Controllers
 
         [HttpPost]
         [IsAuthenticated]
+        [Route("like")]
         public DtoLike Like(DtoLike dtoLike)
         {
             dtoLike.id = this.modelFeedService.Like(dtoLike);
@@ -83,6 +89,7 @@ namespace SimpleSocialNetwork.Controllers
 
         [HttpPost]
         [IsAuthenticated]
+        [Route("dislike")]
         public void Dislike(DtoLike dtoLike)
         {
             this.modelFeedService.Dislike(dtoLike.id);

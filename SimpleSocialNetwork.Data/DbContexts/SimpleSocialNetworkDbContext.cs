@@ -6,7 +6,7 @@ namespace SimpleSocialNetwork.Data.DbContexts
 {
     public class SimpleSocialNetworkDbContext : DbContext
     {
-        public SimpleSocialNetworkDbContext() : base("name=SimpleSocialNetworkConnectionString")
+        public SimpleSocialNetworkDbContext() : base("Data Source=HYTE-Y-60;Initial Catalog=SimpleSocialNetwork;Integrated Security=True;Pooling=False;Encrypt=True;TrustServerCertificate=True")
         {
         }
 

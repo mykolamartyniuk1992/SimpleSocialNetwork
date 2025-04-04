@@ -15,23 +15,26 @@ namespace SimpleSocialNetwork
         {
             app.MapSignalR();
 
-            //var httpConfiguration = new HttpConfiguration();
+            var httpConfiguration = new HttpConfiguration();
 
-            //httpConfiguration.Formatters.Clear();
-            //httpConfiguration.Formatters.Add(new JsonMediaTypeFormatter());
+            // Включаем атрибутную маршрутизацию
+            httpConfiguration.MapHttpAttributeRoutes();
 
-            //httpConfiguration.Formatters.JsonFormatter.SerializerSettings =
-            //    new JsonSerializerSettings
-            //    {
-            //        ContractResolver = new CamelCasePropertyNamesContractResolver()
-            //    };
+            httpConfiguration.Formatters.Clear();
+            httpConfiguration.Formatters.Add(new JsonMediaTypeFormatter());
 
-            //httpConfiguration.Routes.MapHttpRoute(
-            //    name: "test",
-            //    routeTemplate: "{*all}",
-            //    defaults: new { });
+            httpConfiguration.Formatters.JsonFormatter.SerializerSettings =
+                new JsonSerializerSettings
+                {
+                    ContractResolver = new CamelCasePropertyNamesContractResolver()
+                };
 
-            //app.UseWebApi(httpConfiguration);
+            httpConfiguration.Routes.MapHttpRoute(
+                name: "DefaultApi",
+                routeTemplate: "api/{controller}/{id}",
+                defaults: new { id = RouteParameter.Optional });
+
+            app.UseWebApi(httpConfiguration);
         }
     }
 }

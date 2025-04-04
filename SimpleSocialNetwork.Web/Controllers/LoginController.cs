@@ -9,17 +9,28 @@ using SimpleSocialNetwork.Service.ModelProfileService;
 
 namespace SimpleSocialNetwork.Controllers
 {
+    [RoutePrefix("api/login")]
     public class LoginController : ApiController
     {
-        private readonly IModelProfileService modelProfileService;
+        private readonly IModelProfileService modelProfileService = new ModelProfileService();
 
         public LoginController()
         {
-            var kernel = new StandardKernel(new NinjectRegistrations());
-            this.modelProfileService = kernel.Get<IModelProfileService>();
+            try
+            {
+                //var kernel = new StandardKernel(new NinjectRegistrations());
+                //this.modelProfileService = kernel.Get<IModelProfileService>();
+            }
+            catch (Exception e)
+            {
+
+                throw e;
+            }
+            
         }
 
         [HttpPost]
+        [Route("login")]
         public DtoProfile Login(DtoProfile profile)
         {
             try
@@ -34,12 +45,14 @@ namespace SimpleSocialNetwork.Controllers
         }
 
         [HttpPost]
+        [Route("isregistered")]
         public bool IsRegistered(DtoProfile profile)
         {
             return new ModelProfileService().IsRegistered(profile.name, profile.password);
         }
 
         [HttpPost]
+        [Route("isauthenticated")]
         public bool IsAuthenticated(DtoProfile profile)
         {
             return new ModelProfileService().IsAuthenticated(profile.name, profile.token);

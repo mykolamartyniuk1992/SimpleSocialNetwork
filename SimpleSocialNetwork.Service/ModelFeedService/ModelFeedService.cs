@@ -48,15 +48,20 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
                         dtoLikes.Add(dtoLike);
                     }
                 }
-                dtoFeed.Add(new DtoFeed()
+                ModelProfile modelProfile = profileRepo.FirstOrDefaultAsync(p => p.Id == f.ProfileId).Result;
+                if (modelProfile != null)
                 {
-                    name = f.Profile.Name,
-                    text = f.Text,
-                    date = f.DateAdd.ToString(),
-                    id = f.Id,
-                    parentId = f.ParentId,
-                    likes = dtoLikes
-                });
+                    dtoFeed.Add(new DtoFeed()
+                    {
+                        name = modelProfile.Name,
+                        text = f.Text,
+                        date = f.DateAdd.ToString(),
+                        id = f.Id,
+                        parentId = f.ParentId,
+                        likes = dtoLikes
+                    });
+                }
+                
             }
 
             return dtoFeed;

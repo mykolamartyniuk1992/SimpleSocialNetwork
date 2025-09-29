@@ -1,19 +1,23 @@
-﻿using System.Data.Entity.ModelConfiguration;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SimpleSocialNetwork.Models;
 
-namespace SimpleSocialNetwork.Data.EntityConfigurations
+namespace SimpleSocialNetwork.Data;
+
+public sealed class ConfigProfile : IEntityTypeConfiguration<ModelProfile>
 {
-    public class ConfigProfile : EntityTypeConfiguration<ModelProfile>
+    public void Configure(EntityTypeBuilder<ModelProfile> e)
     {
-        public ConfigProfile()
-        {
-            ToTable("profiles");
-            Property(user => user.Id).HasColumnName("id");
-            HasKey(user => user.Id);
-            Property(user => user.Name).HasColumnName("name");
-            Property(user => user.Password).HasColumnName("password_hash");
-            Property(user => user.Token).HasColumnName("token");
-            Property(user => user.DateAdd).HasColumnName("date_add");
-        }
+        e.ToTable("profiles");
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Id).ValueGeneratedOnAdd();
+
+        e.Property(x => x.Name).IsRequired().HasMaxLength(200);
+        e.Property(x => x.Password).IsRequired().HasMaxLength(256);
+        e.Property(x => x.Token).HasMaxLength(256);
+
+        e.Property(x => x.DateAdd)
+            .HasColumnType("datetime2")
+            .HasDefaultValueSql("SYSUTCDATETIME()");
     }
 }

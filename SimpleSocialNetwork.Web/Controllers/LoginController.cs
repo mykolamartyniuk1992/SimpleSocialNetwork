@@ -1,61 +1,56 @@
 ﻿using System;
-using System.Net;
-using System.Net.Http;
-using System.Web.Http;
-using Ninject;
-using SimpleSocialNetwork.App_Code;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using SimpleSocialNetwork.Dto;
 using SimpleSocialNetwork.Service.ModelProfileService;
 
 namespace SimpleSocialNetwork.Controllers
 {
-    [RoutePrefix("api/login")]
-    public class LoginController : ApiController
+    [ApiController]
+    [Route("api/login")]
+    public class LoginController : ControllerBase
     {
-        private readonly IModelProfileService modelProfileService = new ModelProfileService();
+        private readonly IModelProfileService _profiles;
 
-        public LoginController()
+        public LoginController(IModelProfileService profiles)
+        {
+            _profiles = profiles;
+        }
+
+        [HttpPost("login")]
+        public ActionResult<DtoProfile> Login([FromBody] DtoProfile profile)
         {
             try
             {
-                //var kernel = new StandardKernel(new NinjectRegistrations());
-                //this.modelProfileService = kernel.Get<IModelProfileService>();
+                var token = _profiles.Login(profile.name, profile.password).ToString();
+
+                // Если используешь куки для фильтра IsAuthenticated — пишем их тут
+                var cookie = new CookieOptions
+                {
+                    HttpOnly = true,
+                    SameSite = SameSiteMode.Strict,
+                    Secure = Request.IsHttps,      // true за HTTPS
+                    Expires = DateTimeOffset.UtcNow.AddDays(7)
+                };
+                Response.Cookies.Append("name",  profile.name, cookie);
+                Response.Cookies.Append("token", token,       cookie);
+
+                profile.token = token;
+                return Ok(profile);
             }
             catch (Exception e)
             {
-
-                throw e;
-            }
-            
-        }
-
-        [HttpPost]
-        [Route("login")]
-        public DtoProfile Login(DtoProfile profile)
-        {
-            try
-            {
-                profile.token = this.modelProfileService.Login(profile.name, profile.password).ToString();
-                return profile;
-            }
-            catch (Exception e)
-            {
-                throw new HttpResponseException(new HttpResponseMessage(HttpStatusCode.Forbidden) { Content = new StringContent(e.Message) });
+                // Аналог HttpResponseException(HttpStatusCode.Forbidden)
+                return Problem(e.Message, statusCode: 403);
             }
         }
 
-        [HttpPost]
-        [Route("isregistered")]
-        public bool IsRegistered(DtoProfile profile)
-        {
-            return new ModelProfileService().IsRegistered(profile.name, profile.password);
-        }
+        [HttpPost("isregistered")]
+        public ActionResult<bool> IsRegistered([FromBody] DtoProfile profile)
+            => Ok(_profiles.IsRegistered(profile.name, profile.password));
 
-        [HttpPost]
-        [Route("isauthenticated")]
-        public bool IsAuthenticated(DtoProfile profile)
-        {
-            return new ModelProfileService().IsAuthenticated(profile.name, profile.token);
-        }
+        [HttpPost("isauthenticated")]
+        public ActionResult<bool> IsAuthenticated([FromBody] DtoProfile profile)
+            => Ok(_profiles.IsAuthenticated(profile.name, profile.token));
     }
 }

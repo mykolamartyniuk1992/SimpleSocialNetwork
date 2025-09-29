@@ -1,19 +1,19 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30011.22
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleSocialNetwork.Models", "SimpleSocialNetwork.Models\SimpleSocialNetwork.Models.csproj", "{7ECC895D-95E3-4037-9176-71982935386C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleSocialNetwork.Models", "SimpleSocialNetwork.Models\SimpleSocialNetwork.Models.csproj", "{7ECC895D-95E3-4037-9176-71982935386C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleSocialNetwork.Web", "SimpleSocialNetwork.Web\SimpleSocialNetwork.Web.csproj", "{07266E00-5D93-4255-A4D3-28929561167C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleSocialNetwork.Data", "SimpleSocialNetwork.Data\SimpleSocialNetwork.Data.csproj", "{20FCE755-A245-4CD2-97AF-F7C4B1C15FDA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleSocialNetwork.Data", "SimpleSocialNetwork.Data\SimpleSocialNetwork.Data.csproj", "{20FCE755-A245-4CD2-97AF-F7C4B1C15FDA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleSocialNetwork.Dto", "SimpleSocialNetwork.Dto\SimpleSocialNetwork.Dto.csproj", "{1507F54D-00F9-4AA4-AA48-02CDC3111EE7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleSocialNetwork.Dto", "SimpleSocialNetwork.Dto\SimpleSocialNetwork.Dto.csproj", "{1507F54D-00F9-4AA4-AA48-02CDC3111EE7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleSocialNetwork.Service", "SimpleSocialNetwork.Service\SimpleSocialNetwork.Service.csproj", "{9722817B-22A3-44FF-BBA0-72F61DB2F716}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleSocialNetwork.Service", "SimpleSocialNetwork.Service\SimpleSocialNetwork.Service.csproj", "{9722817B-22A3-44FF-BBA0-72F61DB2F716}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleSocialNetwork.Test", "SimpleSocialNetwork.Test\SimpleSocialNetwork.Test.csproj", "{4319125D-8BDB-43F5-B307-D7A3F7CA2347}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleSocialNetwork.Test", "SimpleSocialNetwork.Test\SimpleSocialNetwork.Test.csproj", "{4319125D-8BDB-43F5-B307-D7A3F7CA2347}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

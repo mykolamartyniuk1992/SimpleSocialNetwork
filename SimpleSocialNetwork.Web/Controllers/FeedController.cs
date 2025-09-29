@@ -1,104 +1,75 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Web;
-using System.Web.Http;
-using Ninject;
-using SimpleSocialNetwork.App_Code;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using SimpleSocialNetwork.Dto;
 using SimpleSocialNetwork.Hubs;
 using SimpleSocialNetwork.Service.ModelFeedService;
 
 namespace SimpleSocialNetwork.Controllers
 {
-    [RoutePrefix("api/feed")]
-    public class FeedController : ApiController
+    [ApiController]
+    [Route("api/feed")]
+    public class FeedController : ControllerBase
     {
-        private readonly IModelFeedService modelFeedService;
+        private readonly IModelFeedService _feeds;
+        private readonly IHubContext<FeedHub> _hub;
 
-        public FeedController()
+        public FeedController(IModelFeedService feeds, IHubContext<FeedHub> hub)
         {
-            var kernel = new StandardKernel(new NinjectRegistrations());
-            this.modelFeedService = kernel.Get<IModelFeedService>();
+            _feeds = feeds;
+            _hub  = hub;
         }
 
-        [HttpGet]
-        [Route("hello")]
-        public string Hello()
+        [HttpGet("hello")]
+        public ActionResult<string> Hello() => "Hello there";
+
+        [HttpPost("getfeed")]
+        [ServiceFilter(typeof(IsAuthenticatedAttribute))]                            // фильтр сам проверит куки
+        public ActionResult<IEnumerable<DtoFeed>> GetFeed()
+            => Ok(_feeds.GetFeed());
+
+        [HttpPost("addfeed")]
+        [ServiceFilter(typeof(IsAuthenticatedAttribute))]
+        public async Task<ActionResult<int>> AddFeed([FromBody] DtoFeed dto)
         {
-            return "Hello there";
+            // автор берётся с куки (JS не шлёт name/token)
+            dto.name = Request.Cookies["name"];
+            dto.token = Request.Cookies["token"];
+            dto.id = _feeds.AddFeed(dto);
+            await _hub.Clients.All.SendAsync("newFeed", dto);
+            return Ok(dto.id);
         }
 
-        [HttpPost]
-        [IsAuthenticated]
-        [Route("getfeed")]
-        public IEnumerable<DtoFeed> GetFeed(DtoProfile profile)
+        [HttpPost("deletefeed")]
+        [ServiceFilter(typeof(IsAuthenticatedAttribute))]
+        public async Task<IActionResult> DeleteFeed([FromBody] DtoFeed dto)
         {
-            return this.modelFeedService.GetFeed();
+            // при желании можешь сверять автора по куке:
+            // var name = Request.Cookies["name"]; _feeds.AssertOwner(dto.id, name);
+            
+            _feeds.DeleteFeed(dto.id);
+            await _hub.Clients.All.SendAsync("deleteFeed", dto);
+            return NoContent();
         }
 
-        [HttpPost]
-        [IsAuthenticated]
-        [Route("addfeed")]
-        public int AddFeed(DtoFeed dtoFeed)
+        [HttpPost("like")]
+        [ServiceFilter(typeof(IsAuthenticatedAttribute))]
+        public async Task<ActionResult<DtoLike>> Like([FromBody] DtoLike like)
         {
-            dtoFeed.id = this.modelFeedService.AddFeed(dtoFeed);
-            // Получаем контекст хаба
-            var cntxt =
-                Microsoft.AspNet.SignalR.GlobalHost.ConnectionManager.GetHubContext<FeedHub>();
-            // отправляем сообщение
-            cntxt.Clients.All.newFeed(dtoFeed);
-
-            return dtoFeed.id;
+            like.profileName = Request.Cookies["name"];
+            like.id = _feeds.Like(like);
+            await _hub.Clients.All.SendAsync("like", like);
+            return Ok(like);
         }
 
-        [HttpPost]
-        [IsAuthenticated]
-        [Route("deletefeed")]
-        public void DeleteFeed(DtoFeed dtoFeed)
+        [HttpPost("dislike")]
+        [ServiceFilter(typeof(IsAuthenticatedAttribute))]
+        public async Task<IActionResult> Dislike([FromBody] DtoLike like)
         {
-            var cookies = Request.Headers.GetCookies().FirstOrDefault();
-            var name = cookies["name"];
-            var token = cookies["token"];
-            if (dtoFeed.name != name.Value || dtoFeed.token != token.Value) throw new HttpException(403, "you are not the author of this post!");
-            this.modelFeedService.DeleteFeed(dtoFeed.id);
-
-            // Получаем контекст хаба
-            var cntxt =
-                Microsoft.AspNet.SignalR.GlobalHost.ConnectionManager.GetHubContext<FeedHub>();
-            // отправляем сообщение
-            cntxt.Clients.All.deleteFeed(dtoFeed);
-        }
-
-        [HttpPost]
-        [IsAuthenticated]
-        [Route("like")]
-        public DtoLike Like(DtoLike dtoLike)
-        {
-            dtoLike.id = this.modelFeedService.Like(dtoLike);
-
-            // Получаем контекст хаба
-            var cntxt =
-                Microsoft.AspNet.SignalR.GlobalHost.ConnectionManager.GetHubContext<FeedHub>();
-            // отправляем сообщение
-            cntxt.Clients.All.like(dtoLike);
-
-            return dtoLike;
-        }
-
-        [HttpPost]
-        [IsAuthenticated]
-        [Route("dislike")]
-        public void Dislike(DtoLike dtoLike)
-        {
-            this.modelFeedService.Dislike(dtoLike.id);
-             
-            // Получаем контекст хаба
-            var cntxt =
-                Microsoft.AspNet.SignalR.GlobalHost.ConnectionManager.GetHubContext<FeedHub>();
-            // отправляем сообщение
-            cntxt.Clients.All.unlike(dtoLike);
+            _feeds.Dislike(like.id);
+            await _hub.Clients.All.SendAsync("unlike", like);
+            return NoContent();
         }
     }
 }

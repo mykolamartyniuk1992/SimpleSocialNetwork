@@ -1,16 +1,21 @@
-﻿using System;
-using System.Web.Http;
+﻿using Microsoft.AspNetCore.Mvc;
 using SimpleSocialNetwork.Dto;
 using SimpleSocialNetwork.Service.ModelProfileService;
 
-namespace SimpleSocialNetwork.Controllers
+[ApiController]
+[Route("api/[controller]/[action]")]
+public class RegisterController : ControllerBase
 {
-    public class RegisterController : ApiController
+    private readonly IModelProfileService _profileService;
+
+    public RegisterController(IModelProfileService profileService)
+        => _profileService = profileService;
+
+    [HttpPost]                      // POST /api/register
+    public async Task<IActionResult> Register([FromBody] DtoProfile newProfile,
+        CancellationToken ct)
     {
-        [HttpPost]
-        public void Register(DtoProfile newProfile)
-        {
-            new ModelProfileService().Register(newProfile);
-        }
+        _profileService.Register(newProfile);
+        return Ok();
     }
 }

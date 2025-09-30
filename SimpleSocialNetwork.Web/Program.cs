@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using SimpleSocialNetwork;
 using SimpleSocialNetwork.Data;
 using SimpleSocialNetwork.Data.Repositories;
+using SimpleSocialNetwork.Hubs;
 using SimpleSocialNetwork.Models;
 using SimpleSocialNetwork.Service.ModelFeedService;
 using SimpleSocialNetwork.Service.ModelProfileService;
@@ -61,6 +62,6 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-// app.MapHub<FeedHub>("/hubs/feed");
+app.MapHub<FeedHub>("/hubs/feed");
 
 app.Run();

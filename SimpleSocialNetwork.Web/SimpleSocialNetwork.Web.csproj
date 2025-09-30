@@ -21,8 +21,6 @@
       <ProjectReference Include="..\SimpleSocialNetwork.Service\SimpleSocialNetwork.Service.csproj" />
     </ItemGroup>
     <ItemGroup>
-      <None Include="wwwroot\Feed.html" />
-      <None Include="wwwroot\Login.html" />
-      <None Include="wwwroot\Register.html" />
+      <Folder Include="wwwroot\" />
     </ItemGroup>
 </Project>

@@ -38,7 +38,7 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
             return profileFounded != null;
         }
 
-        public void Register(DtoProfile newProfile)
+        public async Task RegisterAsync(DtoProfile newProfile)
         {
             ModelProfile modelProfile = new ModelProfile()
             {
@@ -46,7 +46,7 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
                 Name = newProfile.name,
                 Password = newProfile.password
             };
-            profileRepo.AddAsync(modelProfile);
+            await profileRepo.AddAsync(modelProfile);
         }
 
         public bool IsAuthenticated(string name, string token)

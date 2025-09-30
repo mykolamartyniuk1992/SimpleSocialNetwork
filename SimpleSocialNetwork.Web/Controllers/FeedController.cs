@@ -1,10 +1,11 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using Humanizer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using SimpleSocialNetwork.Dto;
 using SimpleSocialNetwork.Hubs;
 using SimpleSocialNetwork.Service.ModelFeedService;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace SimpleSocialNetwork.Controllers
 {
@@ -45,9 +46,10 @@ namespace SimpleSocialNetwork.Controllers
         [ServiceFilter(typeof(IsAuthenticatedAttribute))]
         public async Task<IActionResult> DeleteFeed([FromBody] DtoFeed dto)
         {
-            // при желании можешь сверять автора по куке:
-            // var name = Request.Cookies["name"]; _feeds.AssertOwner(dto.id, name);
-            
+            // автор берётся с куки (JS не шлёт name/token)
+            dto.name = Request.Cookies["name"];
+            dto.token = Request.Cookies["token"];
+
             _feeds.DeleteFeed(dto.id);
             await _hub.Clients.All.SendAsync("deleteFeed", dto);
             return NoContent();
@@ -57,6 +59,8 @@ namespace SimpleSocialNetwork.Controllers
         [ServiceFilter(typeof(IsAuthenticatedAttribute))]
         public async Task<ActionResult<DtoLike>> Like([FromBody] DtoLike like)
         {
+            // автор берётся с куки (JS не шлёт name/token)
+            like.token = Request.Cookies["token"];
             like.profileName = Request.Cookies["name"];
             like.id = _feeds.Like(like);
             await _hub.Clients.All.SendAsync("like", like);

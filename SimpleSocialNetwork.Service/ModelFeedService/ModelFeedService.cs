@@ -37,13 +37,14 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
                 var likes = likeRepo.WhereAsync(l => l.FeedId == f.Id).Result;
                 if (likes.Any())
                 {
-                    foreach (var l in f.Likes)
+                    foreach (var l in likes)
                     {
+                        var profile = profileRepo.FirstOrDefaultAsync(p => p.Id == l.ProfileId).Result;
                         var dtoLike = new DtoLike()
                         {
                             id = l.Id,
                             feedId = l.FeedId,
-                            profileName = l.Profile.Name
+                            profileName = profile.Name
                         };
                         dtoLikes.Add(dtoLike);
                     }
@@ -100,10 +101,20 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
 
         public int Like(DtoLike like)
         {
+            int profileId = 0;
+            var profile = profileRepo.FirstOrDefaultAsync(profile => profile.Name == like.profileName && profile.Token == like.token).Result;
+            if (profile != null)
+            {
+                profileId = profile.Id;
+            } 
+            else
+            {
+                throw new Exception("Profile not found");
+            }
             var modelLike = new ModelLike()
             {
                 FeedId = like.feedId,
-                ProfileId = profileRepo.FirstOrDefaultAsync(profile => profile.Name == like.profileName && profile.Token == like.token).Result.Id
+                ProfileId = profileId
             };
             return likeRepo.AddAsync(modelLike).Result.Id;
         }
@@ -113,7 +124,8 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
             var like = new DtoLike();
             var model = likeRepo.FirstOrDefaultAsync(l => l.Id == likeId).Result;
             like.feedId = model.FeedId;
-            like.profileName = model.Profile.Name;
+            var profile = profileRepo.FirstOrDefaultAsync(p => p.Id == model.ProfileId).Result;
+            like.profileName = profile.Name;
             likeRepo.DeleteAsync(model);
             return like;
         }

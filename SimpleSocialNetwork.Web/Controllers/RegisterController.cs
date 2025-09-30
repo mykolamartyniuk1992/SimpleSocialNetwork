@@ -15,7 +15,7 @@ public class RegisterController : ControllerBase
     public async Task<IActionResult> Register([FromBody] DtoProfile newProfile,
         CancellationToken ct)
     {
-        _profileService.Register(newProfile);
+        await _profileService.RegisterAsync(newProfile);
         return Ok();
     }
 }

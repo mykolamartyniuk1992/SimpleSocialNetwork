@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using SimpleSocialNetwork.Data.Repositories;
 using SimpleSocialNetwork.Models;
@@ -11,43 +11,69 @@ namespace SimpleSocialNetwork.Test.Stub
 {
     public class ModelFeedRepositoryStub : IRepository<ModelFeed>
     {
-        private List<ModelFeed> feeds;
+        private readonly List<ModelFeed> _feeds = new();
 
-        public ModelFeedRepositoryStub()
+        public Task<ModelFeed> AddAsync(ModelFeed model, CancellationToken ct = default)
         {
-            this.feeds = new List<ModelFeed>();
+            ct.ThrowIfCancellationRequested();
+            if (model == null) throw new ArgumentNullException(nameof(model));
+
+            model.Id = _feeds.Count == 0 ? 1 : _feeds.Max(f => f.Id) + 1;
+            _feeds.Add(model);
+            return Task.FromResult(model);
         }
 
-        public ModelFeed Add(ModelFeed model)
+        public Task UpdateAsync(ModelFeed model, CancellationToken ct = default)
         {
-            model.Id = this.feeds.Any() ? this.feeds.Count + 1 : 1;
-            this.feeds.Add(model);
-            return model;
+            ct.ThrowIfCancellationRequested();
+            if (model == null) throw new ArgumentNullException(nameof(model));
+
+            var idx = _feeds.FindIndex(f => f.Id == model.Id);
+            if (idx >= 0) _feeds[idx] = model;
+            return Task.CompletedTask;
         }
 
-        public void Delete(ModelFeed model)
+        public Task DeleteAsync(ModelFeed model, CancellationToken ct = default)
         {
-            this.feeds.Remove(model);
+            ct.ThrowIfCancellationRequested();
+            if (model == null) throw new ArgumentNullException(nameof(model));
+
+            _feeds.RemoveAll(f => f.Id == model.Id);
+            return Task.CompletedTask;
         }
 
-        public void Update(ModelFeed model)
+        public Task<ModelFeed> FirstOrDefaultAsync(
+            Expression<Func<ModelFeed, bool>> predicate,
+            CancellationToken ct = default)
         {
-            this.feeds[this.feeds.IndexOf(model)] = model;
+            ct.ThrowIfCancellationRequested();
+            var compiled = predicate.Compile();
+            var item = _feeds.FirstOrDefault(compiled);
+            return Task.FromResult(item);
         }
 
-        public ModelFeed FirstOrDefault(Expression<Func<ModelFeed, bool>> predicate)
+        public Task<List<ModelFeed>> GetAllAsync(CancellationToken ct = default)
         {
-            return this.feeds.FirstOrDefault(predicate.Compile());
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(_feeds.ToList());
         }
 
-        public IQueryable<ModelFeed> Where(Expression<Func<ModelFeed, bool>> predicate)
+        public Task<List<ModelFeed>> WhereAsync(
+            Expression<Func<ModelFeed, bool>> predicate,
+            CancellationToken ct = default)
         {
-            return this.feeds.Where(predicate.Compile()).AsQueryable();
+            ct.ThrowIfCancellationRequested();
+            var compiled = predicate.Compile();
+            return Task.FromResult(_feeds.Where(compiled).ToList());
         }
 
-        public IQueryable<ModelFeed> GetAll()
+        public Task<bool> AnyAsync(
+            Expression<Func<ModelFeed, bool>> predicate,
+            CancellationToken ct = default)
         {
-            return this.feeds.AsQueryable();
+            ct.ThrowIfCancellationRequested();
+            var compiled = predicate.Compile();
+            return Task.FromResult(_feeds.Any(compiled));
         }
     }
 }

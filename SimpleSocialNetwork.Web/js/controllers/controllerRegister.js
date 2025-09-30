@@ -4,7 +4,7 @@
         let newProfile = { name: $scope.profileName, password: SHA256($scope.profilePassword) };
         $http({
             method: 'POST',
-            url: 'http://localhost:58366/api/register/register',
+            url: '/api/register/register',
             data: newProfile
         }).then(function successCallback(response) {
             alert('Now you can enter your credentials on login page');

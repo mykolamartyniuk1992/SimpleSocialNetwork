@@ -1,0 +1,24 @@
+﻿<!DOCTYPE html>
+<html ng-app="appSimpleSocialNetworkApp">
+<head>
+    <meta charset="utf-8" />
+    <title>Feed</title>
+    <script src="js/functions.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.7.2/angular.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.7.2/angular-cookies.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/controllers/controllerHeader.js"></script>
+    <script src="js/controllers/controllerFeed.js"></script>
+    <link href="css/style.css" rel="stylesheet" />
+
+    <!-- inject:vendor:css -->
+    <!-- endinject -->
+    
+    <!-- inject:vendor:js -->
+    <!-- endinject -->
+</head>
+<body>
+    <div ng-include="'views/header.html'"></div>
+    <div class="container" ng-include="'views/feed.html'"></div>
+</body>
+</html>

@@ -24,12 +24,12 @@ namespace SimpleSocialNetwork.Test
             var modelFeedService = new ModelFeedService(feedRepo, null, profileRepo);
             var username = "username";
             var token = "token";
-            profileRepo.Add(new ModelProfile() {Name = username, Token = token});
+            profileRepo.AddAsync(new ModelProfile() {Name = username, Token = token});
             var feedParent = new DtoFeed(){name = username, token = token};
             feedParent.id = modelFeedService.AddFeed(feedParent);
             var feedChild = new DtoFeed { parentId = feedParent.id, name = username, token = token};
             feedChild.id = modelFeedService.AddFeed(feedChild);
-            var modelChild = feedRepo.FirstOrDefault(f => f.Id == feedChild.id);
+            var modelChild = feedRepo.FirstOrDefaultAsync(f => f.Id == feedChild.id).Result;
             Assert.IsTrue(modelChild.ParentId == feedChild.parentId);
         }
     }

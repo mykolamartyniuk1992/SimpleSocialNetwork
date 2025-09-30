@@ -1,24 +1,24 @@
-﻿using System.Data.Entity;
+﻿using Microsoft.EntityFrameworkCore;
 using SimpleSocialNetwork.Data.EntityConfigurations;
 using SimpleSocialNetwork.Models;
 
-namespace SimpleSocialNetwork.Data.DbContexts
+namespace SimpleSocialNetwork.Data;
+
+public class SimpleSocialNetworkDbContext : DbContext
 {
-    public class SimpleSocialNetworkDbContext : DbContext
+    public SimpleSocialNetworkDbContext(DbContextOptions<SimpleSocialNetworkDbContext> options)
+        : base(options) { }
+
+    // Таблицы
+    public DbSet<ModelProfile> profiles => Set<ModelProfile>();
+    public DbSet<ModelFeed>    feed     => Set<ModelFeed>();
+    public DbSet<ModelLike>    likes    => Set<ModelLike>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        public SimpleSocialNetworkDbContext() : base("Data Source=HYTE-Y-60;Initial Catalog=SimpleSocialNetwork;Integrated Security=True;Pooling=False;Encrypt=True;TrustServerCertificate=True")
-        {
-        }
-
-        protected override void OnModelCreating(DbModelBuilder modelBuilder)
-        {
-            modelBuilder.Configurations.Add(new ConfigProfile());
-            modelBuilder.Configurations.Add(new ConfigFeed());
-            modelBuilder.Configurations.Add(new ConfigLike());
-        }
-
-        public DbSet<ModelProfile> profiles { get; set; }
-        public DbSet<ModelFeed> feed { get; set; }
-        public DbSet<ModelLike> likes { get; set; }
+        // Применяем конфигурации сущностей (см. ниже)
+        modelBuilder.ApplyConfiguration(new ConfigProfile());
+        modelBuilder.ApplyConfiguration(new ConfigFeed());
+        modelBuilder.ApplyConfiguration(new ConfigLike());
     }
 }

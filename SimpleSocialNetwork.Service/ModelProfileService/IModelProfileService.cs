@@ -13,7 +13,7 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
 
         bool IsRegistered(string name, string password);
 
-        void Register(DtoProfile newProfile);
+        Task RegisterAsync(DtoProfile newProfile);
 
         bool IsAuthenticated(string name, string token);
     }

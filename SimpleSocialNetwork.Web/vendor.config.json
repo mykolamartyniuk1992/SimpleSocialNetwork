@@ -1,0 +1,30 @@
+{
+  "common": {
+    "styles": [
+      "jquery-ui/dist/themes/base/jquery-ui.css",
+      "jquery-ui/dist/themes/base/theme.css",
+      "bootstrap/dist/css/bootstrap.min.css"
+    ],
+    "scripts": [
+      "jquery/dist/jquery.min.js",
+      "jquery-ui/dist/jquery-ui.min.js",
+      "bootstrap/dist/js/bootstrap.bundle.min.js"
+    ]
+  },
+  "pages": {
+    "login.html": {
+      "styles": [],
+      "scripts": []
+    },
+    "register.html": {
+      "styles": [],
+      "scripts": []
+    },
+    "feed.html": {
+      "scripts": [
+        "moment/min/moment.min.js",
+        "@microsoft/signalr/dist/browser/signalr.min.js"
+      ]
+    }
+  }
+}

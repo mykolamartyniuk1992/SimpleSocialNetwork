@@ -1,105 +1,70 @@
 ﻿app.controller('controllerFeed', ['$scope', '$cookies', '$http', function ($scope, $cookies, $http) {
-    debugger;
-    var $jq;
-    try {
-        $jq = jQuery.noConflict();
-    } catch (e) {
-        alert(e);
-    }
-    //var feedHub;
-    $jq(function() {
-        var hub = $jq.connection.feedHub;
-        let ulMessages = document.getElementById("ulMessages");
-        hub.client.newFeed = function (item) {
-            if (item.parentId === null) {
+
+    // Создаём подключение к хабу
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl("/hubs/feed")           // тот же путь, что в MapHub
+        .withAutomaticReconnect()
+        .build();
+
+    // Обработчики входящих событий
+    connection.on("NewFeed", function (item) {
+        $scope.$evalAsync(() => {
+            let ulMessages = document.getElementById("ulMessages");
+            if (item.parentId == null) {
                 new Feed(ulMessages, item.name, item.text, item.id, item.parentId, item.likes);
             } else {
-                let message = messages.find(function (e) {
-                    return e.id === item.parentId;
-                });
-                if (message) {
-                    message.appendChildAnswer(item.name, item.text, item.id, item.parentId, item.likes);
-                }
+                let message = messages.find(e => e.id === item.parentId);
+                if (message) message.appendChildAnswer(item.name, item.text, item.id, item.parentId, item.likes);
             }
-        };
-
-        hub.client.deleteFeed = function (item) {
-            let message = messages.find(function (e) {
-                return e.id === item.id;
-            });
-            if (message) {
-                message.ul.removeChild(message.li);
-            }
-        };
-
-        hub.client.like = function (like) {
-            let message = messages.find(function (e) {
-                return e.id === like.feedId;
-            });
-            if (message) {
-                message.addLike(like);
-            }
-        };
-
-        hub.client.unlike = function (like) {
-            let message = messages.find(function (e) {
-                return e.id === like.feedId;
-            });
-            if (message) {
-                message.removeLike(like);
-            }
-        };
-
-        $jq.connection.hub.start();
+        });
     });
+
+    connection.on("DeleteFeed", function (item) {
+        $scope.$evalAsync(() => {
+            let message = messages.find(e => e.id === item.id);
+            if (message) message.ul.removeChild(message.li);
+        });
+    });
+
+    connection.on("Like", function (like) {
+        $scope.$evalAsync(() => {
+            let message = messages.find(e => e.id === like.feedId);
+            if (message) message.addLike(like);
+        });
+    });
+
+    connection.on("Unlike", function (like) {
+        $scope.$evalAsync(() => {
+            let message = messages.find(e => e.id === like.feedId);
+            if (message) message.removeLike(like);
+        });
+    });
+
+    // Старт подключения
+    connection.start().catch(err => console.error("SignalR start error:", err));
 
     var messages = [];
 
-    $http({
-        method: 'POST',
-        url: 'http://localhost:58366/api/feed/GetFeed',
-        data: {
-            name: $cookies.get('name'),
-            token: $cookies.get('token')
-        }
-    }).then(function (response) {
-
-        console.log('feed response', response);
-        let ulMessages = document.getElementById("ulMessages");
-        response.data.forEach(function (item) {
-            if (item.parentId === null) {
-                new Feed(ulMessages, item.name, item.text, item.id, item.parentId, item.likes);
-            } else {
-                let message = messages.find(function (e) {
-                    return e.id === item.parentId;
-                });
-                if (message) {
-                    message.appendChildAnswer(item.name, item.text, item.id, item.parentId, item.likes);
+    // ⚠️ Без name/token — сервер возьмёт их из HttpOnly куки
+    $http.post('/api/feed/getfeed')
+        .then(function (response) {
+            let ul = document.getElementById("ulMessages");
+            response.data.forEach(function (item) {
+                if (item.parentId === null) {
+                    new Feed(ul, item.name, item.text, item.id, item.parentId, item.likes);
+                } else {
+                    let msg = messages.find(function (e) { return e.id === item.parentId; });
+                    if (msg) msg.appendChildAnswer(item.name, item.text, item.id, item.parentId, item.likes);
                 }
-            }
-
+            });
+        }, function (error) {
+            console.log('feed error', error);
         });
-    }, function (error) {
-        console.log('feed error', error);
-    });
 
     $scope.sendMessage = function () {
-        let id;
-        let txtMessage = document.getElementById('txtMessage');
-        let ulMessages = document.getElementById("ulMessages");
-
-
-
-        $http({
-            method: 'POST',
-            url: 'http://localhost:58366/api/feed/AddFeed',
-            data: {
-                name: $cookies.get('name'),
-                token: $cookies.get('token'),
-                text: txtMessage.value
-            }
-        });
-    }
+        const txt = document.getElementById('txtMessage').value;
+        $http.post('/api/feed/addfeed', { text: txt });     // ← только текст
+    };
 
     class Feed {
         constructor(ul, author, text, id, parentId, likes) {
@@ -163,7 +128,7 @@
                 this.liked = true;
             }
 
-            this.getTitle = function() {
+            this.getTitle = function () {
                 let title = '';
                 for (let i = 0; i < this.likes.length; i++) {
                     title += this.likes[i].profileName + '\n';
@@ -179,10 +144,8 @@
                 if (!this.liked) {
                     $http({
                         method: 'POST',
-                        url: 'http://localhost:58366/api/feed/like',
+                        url: '/api/feed/like',
                         data: {
-                            profileName: $cookies.get('name'),
-                            token: $cookies.get('token'),
                             feedId: feedId
                         }
                     }).then(function (response) {
@@ -195,13 +158,13 @@
                     });
                     $http({
                         method: 'POST',
-                        url: 'http://localhost:58366/api/feed/dislike',
+                        url: '/api/feed/dislike',
                         data: like
                     }).then(function (response) {
                         this.liked = false;
                     }.bind(this));
                 }
-                
+
             }.bind(this);
             this.btn_likes.value = "Likes: " + this.likes.length;
             if (author === $cookies.get('name')) div_message_controls.appendChild(btn_skipMessage);
@@ -213,7 +176,7 @@
             this.li.appendChild(div_message_controls);
             this.ul.appendChild(this.li);
             messages.push(this);
-            
+
         }
 
         addLike(like) {
@@ -232,7 +195,7 @@
                 return e.id === like.id;
             });
             if (index > -1) {
-                
+
                 this.likes.splice(index, 1);
                 this.btn_likes.innerText = "Likes: " + this.likes.length;
                 if (like.profileName === $cookies.get('name')) {
@@ -240,7 +203,7 @@
                     this.btn_likes.classList.remove("active");
                     this.liked = false;
                 }
-                
+
                 this.btn_likes.title = this.getTitle();
             }
         }
@@ -272,10 +235,8 @@
             let id = this.id;
             $http({
                 method: 'POST',
-                url: 'http://localhost:58366/api/feed/AddFeed',
+                url: '/api/feed/AddFeed',
                 data: {
-                    name: $cookies.get('name'),
-                    token: $cookies.get('token'),
                     text: txtMessage.value,
                     parentId: id
                 }
@@ -307,10 +268,8 @@
             let id = this.id;
             $http({
                 method: 'POST',
-                url: 'http://localhost:58366/api/feed/DeleteFeed',
+                url: '/api/feed/DeleteFeed',
                 data: {
-                    name: $cookies.get('name'),
-                    token: $cookies.get('token'),
                     id: id
                 }
             });
@@ -322,26 +281,3 @@
         }
     }
 }]);
-
-//$(document).ready(function () {
-//    alert('ready!');
-//    // Tooltip only Text
-//    $('.masterTooltip').hover(function () {
-//        // Hover over code
-//        var title = $(this).attr('title');
-//        $(this).data('tipText', title).removeAttr('title');
-//        $('<p class="tooltip"></p>')
-//            .text(title)
-//            .appendTo('body')
-//            .fadeIn('slow');
-//    }, function () {
-//        // Hover out code
-//        $(this).attr('title', $(this).data('tipText'));
-//        $('.tooltip').remove();
-//    }).mousemove(function (e) {
-//        var mousex = e.pageX + 20; //Get X coordinates
-//        var mousey = e.pageY + 10; //Get Y coordinates
-//        $('.tooltip')
-//            .css({ top: mousey, left: mousex })
-//    });
-//});

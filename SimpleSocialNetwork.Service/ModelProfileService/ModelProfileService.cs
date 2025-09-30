@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using SimpleSocialNetwork.Data.Repositories;
@@ -11,15 +12,21 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
 {
     public class ModelProfileService : IModelProfileService
     {
+        private IRepository<ModelProfile> profileRepo;
+
+        public ModelProfileService(IRepository<ModelProfile> profileRepo)
+        {
+            this.profileRepo = profileRepo;
+        }
+        
         public Guid Login(string name, string password)
         {
-            var profileRepo = new ModelProfileRepository();
-            var profileFounded = profileRepo.FirstOrDefault(p => p.Name == name && p.Password == password);
+            var profileFounded = profileRepo.FirstOrDefaultAsync(p => p.Name == name && p.Password == password).Result;
             if (profileFounded != null)
             {
                 var guid = Guid.NewGuid();
                 profileFounded.Token = guid.ToString();
-                profileRepo.Update(profileFounded);
+                profileRepo.UpdateAsync(profileFounded);
                 return guid;
             }
             throw new Exception("user not found");
@@ -27,27 +34,24 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
 
         public bool IsRegistered(string name, string password)
         {
-            var profileRepo = new ModelProfileRepository();
-            var profileFounded = profileRepo.FirstOrDefault(p => p.Name == name && p.Password == password);
+            var profileFounded = profileRepo.FirstOrDefaultAsync(p => p.Name == name && p.Password == password).Result;
             return profileFounded != null;
         }
 
-        public void Register(DtoProfile newProfile)
+        public async Task RegisterAsync(DtoProfile newProfile)
         {
-            var profileRepo = new ModelProfileRepository();
             ModelProfile modelProfile = new ModelProfile()
             {
                 DateAdd = DateTime.Now,
                 Name = newProfile.name,
                 Password = newProfile.password
             };
-            profileRepo.Add(modelProfile);
+            await profileRepo.AddAsync(modelProfile);
         }
 
         public bool IsAuthenticated(string name, string token)
         {
-            var profileRepo = new ModelProfileRepository();
-            var profileFounded = profileRepo.FirstOrDefault(p => p.Name == name && p.Token == token);
+            var profileFounded = profileRepo.FirstOrDefaultAsync(p => p.Name == name && p.Token == token).Result;
             return profileFounded != null;
         }
     }

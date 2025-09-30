@@ -1,0 +1,28 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build:dotnet",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "SimpleSocialNetwork.Web/SimpleSocialNetwork.Web.csproj"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "assets",             // опционально: прогон Gulp перед запуском
+      "type": "process",
+      "command": "npx",
+      "args": ["gulp", "default"],
+      "options": { "cwd": "SimpleSocialNetwork.Web" }
+    },
+    {
+      "label": "pre:server",
+      "dependsOn": ["assets", "build:dotnet"],
+      "dependsOrder": "sequence"
+    }
+  ]
+}

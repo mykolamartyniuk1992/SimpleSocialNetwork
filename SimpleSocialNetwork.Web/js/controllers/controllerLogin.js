@@ -5,7 +5,7 @@
         let profile = { name: $scope.profileName, password: pass };
         $http({
             method: 'POST',
-            url: 'http://localhost:58366/api/login/login',
+            url: '/api/login/login',
             data: profile
         }).then(function successCallback(response) {
             if (response.data.name && response.data.token) {

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using SimpleSocialNetwork.Data.Repositories;
 using SimpleSocialNetwork.Models;
@@ -11,43 +11,75 @@ namespace SimpleSocialNetwork.Test.Stub
 {
     public class ModelProfileRepositoryStub : IRepository<ModelProfile>
     {
-        private List<ModelProfile> profiles;
+        private readonly List<ModelProfile> _profiles = new();
 
-        public ModelProfileRepositoryStub()
+        public Task<ModelProfile> AddAsync(ModelProfile model, CancellationToken ct = default)
         {
-            this.profiles = new List<ModelProfile>();
+            if (model == null) throw new ArgumentNullException(nameof(model));
+            ct.ThrowIfCancellationRequested();
+
+            model.Id = _profiles.Count == 0 ? 1 : _profiles.Max(p => p.Id) + 1;
+            _profiles.Add(model);
+            return Task.FromResult(model);
         }
 
-        public ModelProfile Add(ModelProfile model)
+        public Task UpdateAsync(ModelProfile model, CancellationToken ct = default)
         {
-            model.Id = this.profiles.Any() ? this.profiles.Count + 1 : 1;
-            this.profiles.Add(model);
-            return model;
+            if (model == null) throw new ArgumentNullException(nameof(model));
+            ct.ThrowIfCancellationRequested();
+
+            var idx = _profiles.FindIndex(p => p.Id == model.Id);
+            if (idx >= 0) _profiles[idx] = model;
+            return Task.CompletedTask;
         }
 
-        public void Delete(ModelProfile model)
+        public Task DeleteAsync(ModelProfile model, CancellationToken ct = default)
         {
-            this.profiles.Remove(model);
+            if (model == null) throw new ArgumentNullException(nameof(model));
+            ct.ThrowIfCancellationRequested();
+
+            _profiles.RemoveAll(p => p.Id == model.Id);
+            return Task.CompletedTask;
         }
 
-        public void Update(ModelProfile model)
+        public Task<ModelProfile?> FirstOrDefaultAsync(
+            Expression<Func<ModelProfile, bool>> predicate,
+            CancellationToken ct = default)
         {
-            this.profiles[this.profiles.IndexOf(model)] = model;
+            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+            ct.ThrowIfCancellationRequested();
+
+            var compiled = predicate.Compile();
+            var item = _profiles.FirstOrDefault(compiled);
+            return Task.FromResult(item);
         }
 
-        public ModelProfile FirstOrDefault(Expression<Func<ModelProfile, bool>> predicate)
+        public Task<List<ModelProfile>> GetAllAsync(CancellationToken ct = default)
         {
-            return this.profiles.FirstOrDefault(predicate.Compile());
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(_profiles.ToList());
         }
 
-        public IQueryable<ModelProfile> Where(Expression<Func<ModelProfile, bool>> predicate)
+        public Task<List<ModelProfile>> WhereAsync(
+            Expression<Func<ModelProfile, bool>> predicate,
+            CancellationToken ct = default)
         {
-            return this.profiles.Where(predicate.Compile()).AsQueryable();
+            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+            ct.ThrowIfCancellationRequested();
+
+            var compiled = predicate.Compile();
+            return Task.FromResult(_profiles.Where(compiled).ToList());
         }
 
-        public IQueryable<ModelProfile> GetAll()
+        public Task<bool> AnyAsync(
+            Expression<Func<ModelProfile, bool>> predicate,
+            CancellationToken ct = default)
         {
-            return this.profiles.AsQueryable();
+            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+            ct.ThrowIfCancellationRequested();
+
+            var compiled = predicate.Compile();
+            return Task.FromResult(_profiles.Any(compiled));
         }
     }
 }

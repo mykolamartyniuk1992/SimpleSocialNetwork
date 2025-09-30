@@ -6,18 +6,22 @@ using System.Linq.Expressions;
 
 namespace SimpleSocialNetwork.Data.Repositories
 {
-    public interface IRepository<TModel> where TModel : IEntity
+    public interface IRepository<T> where T : IEntity
     {
-        TModel Add(TModel model);
+        Task<T> AddAsync(T model, CancellationToken ct = default);
 
-        void Delete(TModel model);
+        Task DeleteAsync(T model, CancellationToken ct = default);
 
-        void Update(TModel model);
+        Task UpdateAsync(T model, CancellationToken ct = default);
 
-        TModel FirstOrDefault(Expression<Func<TModel, bool>> predicate);
+        Task<T?> FirstOrDefaultAsync(
+            Expression<Func<T, bool>> predicate,
+            CancellationToken ct = default);
 
-        IQueryable<TModel> Where(Expression<Func<TModel, bool>> predicate);
+        Task<List<T>> WhereAsync(
+            Expression<Func<T, bool>> predicate,
+            CancellationToken ct = default);
 
-        IQueryable<TModel> GetAll();
+        Task<List<T>> GetAllAsync(CancellationToken ct = default);
     }
 }

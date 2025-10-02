@@ -1,7 +1,4 @@
-using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using SimpleSocialNetwork;
 using SimpleSocialNetwork.Data;
 using SimpleSocialNetwork.Data.Repositories;
@@ -10,11 +7,8 @@ using SimpleSocialNetwork.Models;
 using SimpleSocialNetwork.Service.ModelFeedService;
 using SimpleSocialNetwork.Service.ModelProfileService;
 
-// using Microsoft.EntityFrameworkCore; // если БД
-// using SimpleSocialNetwork.Data;     // твой DbContext
-// using SimpleSocialNetwork.Hubs;     // если есть SignalR Hub
-
 var builder = WebApplication.CreateBuilder(args);
+
 
 builder.Services.AddControllersWithViews(options =>
 {
@@ -55,8 +49,6 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
-// app.UseAuthentication();
-// app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",

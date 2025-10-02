@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "eslint": "^9.36.0",
     "gulp": "^5.0.1",
     "gulp-debug": "^5.0.1",
     "gulp-inject": "^5.0.5"

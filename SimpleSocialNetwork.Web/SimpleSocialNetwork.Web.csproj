@@ -20,7 +20,8 @@
       <ProjectReference Include="..\SimpleSocialNetwork.Dto\SimpleSocialNetwork.Dto.csproj" />
       <ProjectReference Include="..\SimpleSocialNetwork.Service\SimpleSocialNetwork.Service.csproj" />
     </ItemGroup>
-    <ItemGroup>
-      <Folder Include="wwwroot\" />
-    </ItemGroup>
+	<ItemGroup>
+		<!-- публикуем всё содержимое wwwroot -->
+		<Content Include="wwwroot\**" CopyToPublishDirectory="PreserveNewest" />
+	</ItemGroup>
 </Project>

@@ -45,6 +45,13 @@ builder.Services.AddSignalR();
 
 var app = builder.Build();
 
+if (Environment.GetEnvironmentVariable("AUTO_MIGRATE") == "true")
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<SimpleSocialNetworkDbContext>();
+    db.Database.Migrate(); // применит все pending-миграции, создаст БД если её нет
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");

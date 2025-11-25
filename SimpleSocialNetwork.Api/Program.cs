@@ -1,5 +1,5 @@
 using SimpleSocialNetwork.Api.Services;
-builder.Services.AddScoped<EmailService>();
+
 using Microsoft.EntityFrameworkCore;
 using SimpleSocialNetwork;
 using SimpleSocialNetwork.Data;
@@ -10,7 +10,7 @@ using SimpleSocialNetwork.Service.ModelFeedService;
 using SimpleSocialNetwork.Service.ModelProfileService;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Services.AddScoped<EmailService>();
 
 builder.Services.AddControllersWithViews(options =>
 {

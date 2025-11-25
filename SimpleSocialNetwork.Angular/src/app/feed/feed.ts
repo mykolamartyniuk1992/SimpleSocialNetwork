@@ -154,6 +154,13 @@ export class FeedComponent implements OnInit, OnDestroy {
         const index = this.feeds.findIndex(f => f.id === updatedFeed.id);
         if (index !== -1) {
           updatedFeed.isLiked = updatedFeed.likes?.some(like => like.profileId === currentUserId) || false;
+          // Preserve UI state
+          updatedFeed.showComments = this.feeds[index].showComments;
+          updatedFeed.comments = this.feeds[index].comments;
+          updatedFeed.commentsPage = this.feeds[index].commentsPage;
+          updatedFeed.commentsTotalCount = this.feeds[index].commentsTotalCount;
+          updatedFeed.commentsTotalPages = this.feeds[index].commentsTotalPages;
+          updatedFeed.commentsLoading = this.feeds[index].commentsLoading;
           this.feeds[index] = updatedFeed;
         } else {
           // It might be a comment, search in nested comments

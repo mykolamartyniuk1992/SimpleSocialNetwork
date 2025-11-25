@@ -39,6 +39,9 @@ Generated\ Files/
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 
+# Ignore user-uploaded profile photos
+SimpleSocialNetwork.Api/uploads/profiles/
+
 # NUNIT
 *.VisualState.xml
 TestResult.xml

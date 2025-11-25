@@ -28,5 +28,7 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
         int Like(DtoLike like, int? userId = null);
 
         DtoLike Dislike(int likeId);
+
+        Task<List<DtoLike>> GetLikesForFeedAsync(int feedId);
     }
 }

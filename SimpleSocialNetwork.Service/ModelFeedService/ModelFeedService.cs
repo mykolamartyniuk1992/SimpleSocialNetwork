@@ -13,6 +13,26 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
     // my test commit for CI
     public class ModelFeedService : IModelFeedService
     {
+
+            public async Task<List<DtoLike>> GetLikesForFeedAsync(int feedId)
+            {
+                var likes = await likeRepo.WhereAsync(l => l.FeedId == feedId);
+                var dtoLikes = new List<DtoLike>();
+                foreach (var l in likes)
+                {
+                    var profile = await profileRepo.FirstOrDefaultAsync(p => p.Id == l.ProfileId);
+                    dtoLikes.Add(new DtoLike
+                    {
+                        id = l.Id,
+                        feedId = l.FeedId,
+                        profileId = l.ProfileId,
+                        profileName = profile?.Name,
+                        token = profile?.Token
+                    });
+                }
+                return dtoLikes;
+            }
+    
         private IRepository<ModelFeed> feedRepo;
         private IRepository<ModelLike> likeRepo;
         private IRepository<ModelProfile> profileRepo;

@@ -1,4 +1,5 @@
 import { bootstrapApplication } from '@angular/platform-browser';
+import { materialDialogProvider } from './app/material-dialog.provider';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { AppComponent } from './app/app.component';
 import { provideRouter } from '@angular/router';
@@ -22,6 +23,7 @@ bootstrapApplication(AppComponent, {
       { path: 'feed', component: FeedComponent, canActivate: [authGuard] },  // /feed route - protected
       { path: 'admin', component: AdminComponent, canActivate: [authGuard] },  // /admin route - protected
       { path: 'account-settings', component: AccountSettingsComponent, canActivate: [authGuard] },  // /account-settings route - protected
-    ])
+    ]),
+    materialDialogProvider
   ]
 }).catch(err => console.error(err));

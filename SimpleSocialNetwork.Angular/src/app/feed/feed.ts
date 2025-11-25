@@ -1,3 +1,10 @@
+import { MatDialog } from '@angular/material/dialog';
+import { LikesDialogComponent } from '../likes-dialog/likes-dialog.component';
+interface LastLike {
+  profileName: string;
+  token?: string;
+  photoPath?: string;
+}
 import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
@@ -42,6 +49,12 @@ interface FeedItem {
   hasMoreComments?: boolean;
   commentsTotalCount?: number;
   commentsTotalPages?: number;
+  // For likes popup
+  showLikesPopup?: boolean;
+  popupX?: number;
+  popupY?: number;
+  likesLoading?: boolean;
+  lastLikes?: LastLike[];
 }
 
 @Component({
@@ -63,6 +76,7 @@ interface FeedItem {
   styleUrl: './feed.css',
 })
 export class FeedComponent implements OnInit, OnDestroy {
+  // ...existing code...
   feeds: FeedItem[] = [];
   loading = true;
   postForm: FormGroup;
@@ -75,13 +89,69 @@ export class FeedComponent implements OnInit, OnDestroy {
   pageSize = 5;
   totalCount = 0;
   totalPages = 0;
+  private likesHideTimeouts: { [feedId: number]: any } = {};
 
-  constructor(private http: HttpClient, private fb: FormBuilder, private authService: AuthService, private ngZone: NgZone, private router: Router, private snackBar: MatSnackBar) {
+  constructor(
+    private http: HttpClient,
+    private fb: FormBuilder,
+    private authService: AuthService,
+    private ngZone: NgZone,
+    private router: Router,
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog
+  ) {
     this.postForm = this.fb.group({
       text: ['', [Validators.required, Validators.maxLength(500)]]
     });
     this.messagesLeft = this.authService.getMessagesLeft();
   }
+
+  openLikesDialog(feed: FeedItem, event: MouseEvent): void {
+    event.stopPropagation();
+    this.dialog.open(LikesDialogComponent, {
+      width: '350px',
+      data: { feedId: feed.id }
+    });
+  }
+
+  showLikesPopup(feed: FeedItem): void {
+    // отменяем возможный таймер скрытия
+    if (this.likesHideTimeouts[feed.id]) {
+      clearTimeout(this.likesHideTimeouts[feed.id]);
+      this.likesHideTimeouts[feed.id] = null;
+    }
+
+    feed.showLikesPopup = true;
+
+    if (!feed.lastLikes) {
+      feed.likesLoading = true;
+      this.http
+        .get<LastLike[]>(`${environment.apiUrl}/feed/getlastlikes/${feed.id}?count=5`)
+        .subscribe({
+          next: (likes) => {
+            feed.lastLikes = likes;
+            feed.likesLoading = false;
+          },
+          error: () => {
+            feed.lastLikes = [];
+            feed.likesLoading = false;
+          },
+        });
+    }
+  }
+
+  hideLikesPopup(feed: FeedItem): void {
+    // ставим небольшую задержку, чтобы успеть доехать мышкой
+    if (this.likesHideTimeouts[feed.id]) {
+      clearTimeout(this.likesHideTimeouts[feed.id]);
+    }
+
+    this.likesHideTimeouts[feed.id] = setTimeout(() => {
+      feed.showLikesPopup = false;
+      this.likesHideTimeouts[feed.id] = null;
+    }, 250); // 200–300 мс обычно хватает
+  }
+
 
   get isPostingDisabled(): boolean {
     return !this.authService.isVerified() && this.messagesLeft !== null && this.messagesLeft <= 0;

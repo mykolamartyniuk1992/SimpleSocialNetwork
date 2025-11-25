@@ -10,12 +10,19 @@ import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../services/auth.service';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { LikesDialogComponent } from '../likes-dialog/likes-dialog.component';
 
 interface Like {
   id: number;
   feedId: number;
   profileId: number;
   profileName?: string;
+}
+
+interface LastLike {
+  profileName: string;
+  photoPath?: string;
 }
 
 interface FeedItem {
@@ -27,6 +34,7 @@ interface FeedItem {
   likes: Like[];
   isLiked?: boolean;
   profilePhotoPath?: string;
+
   parentId?: number;
   comments?: FeedItem[];
   showComments?: boolean;
@@ -38,6 +46,11 @@ interface FeedItem {
   hasMoreComments?: boolean;
   commentsTotalCount?: number;
   commentsTotalPages?: number;
+
+  /** popup лайков */
+  showLikesPopup?: boolean;
+  likesLoading?: boolean;
+  lastLikes?: LastLike[];
 }
 
 @Component({
@@ -50,7 +63,8 @@ interface FeedItem {
     MatIconModule,
     MatFormFieldModule,
     MatInputModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatDialogModule
   ],
   templateUrl: './feed-comment.html',
   styleUrl: './feed-comment.css',
@@ -63,13 +77,58 @@ export class FeedCommentComponent implements OnInit, OnDestroy {
   liking: { [key: number]: boolean } = {};
   private profileUpdateSubscription?: any;
   messagesLeft: number | null = null;
+  private likesHideTimeouts: { [id: number]: any } = {};
 
   constructor(
     private http: HttpClient,
-    private authService: AuthService
+    private authService: AuthService,
+    private dialog: MatDialog
   ) {
     this.messagesLeft = this.authService.getMessagesLeft();
   }
+
+  openLikesDialog(feed: FeedItem, event: MouseEvent): void {
+  event.stopPropagation();
+  this.dialog.open(LikesDialogComponent, {
+    width: '350px',
+    data: { feedId: feed.id }
+  });
+}
+
+showLikesPopup(feed: FeedItem): void {
+  // отмена таймера скрытия
+  if (this.likesHideTimeouts[feed.id]) {
+    clearTimeout(this.likesHideTimeouts[feed.id]);
+    this.likesHideTimeouts[feed.id] = null;
+  }
+
+  feed.showLikesPopup = true;
+
+  // если уже загружено — не грузим
+  if (feed.lastLikes) return;
+
+  feed.likesLoading = true;
+
+  this.http.get<LastLike[]>(`${environment.apiUrl}/feed/getlastlikes/${feed.id}?count=5`)
+    .subscribe({
+      next: (likes) => {
+        feed.lastLikes = likes;
+        feed.likesLoading = false;
+      },
+      error: () => {
+        feed.lastLikes = [];
+        feed.likesLoading = false;
+      }
+    });
+}
+
+hideLikesPopup(feed: FeedItem): void {
+  // задержка скрытия, чтобы можно было успеть навести курсор
+  this.likesHideTimeouts[feed.id] = setTimeout(() => {
+    feed.showLikesPopup = false;
+    this.likesHideTimeouts[feed.id] = null;
+  }, 250);
+}
 
   ngOnInit(): void {
     // Subscribe to profile updates to refresh messagesLeft

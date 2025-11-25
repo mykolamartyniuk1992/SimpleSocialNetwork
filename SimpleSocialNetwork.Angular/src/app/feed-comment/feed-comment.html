@@ -14,26 +14,65 @@
     <p>{{ comment.text }}</p>
   </mat-card-content>
   <mat-card-actions>
-    <button mat-button (click)="toggleLike(comment)" [disabled]="liking[comment.id]" [color]="comment.isLiked ? 'primary' : ''">
+    <div class="likes-wrapper"
+       (mouseenter)="showLikesPopup(comment)"
+       (mouseleave)="hideLikesPopup(comment)">
+
+    <button mat-button
+            (click)="toggleLike(comment)"
+            [disabled]="liking[comment.id]"
+            [color]="comment.isLiked ? 'primary' : ''">
       <mat-icon>{{ comment.isLiked ? 'thumb_up' : 'thumb_up_off_alt' }}</mat-icon>
       <span>{{ getLikesCount(comment) }}</span>
     </button>
-    @if (getCommentsCount(comment) > 0) {
-      <button mat-button (click)="toggleComments(comment)">
-        <mat-icon>{{ comment.showComments ? 'expand_less' : 'expand_more' }}</mat-icon>
-        <span>{{ comment.showComments ? 'Hide' : 'Show' }} Comments ({{ getCommentsCount(comment) }})</span>
-      </button>
-    }
-    <button mat-button (click)="toggleCommentForm(comment)">
-      <mat-icon>add_comment</mat-icon>
-      <span>Reply</span>
+
+    <ng-container *ngIf="comment.showLikesPopup">
+      <div class="likes-popup">
+        <div *ngIf="comment.likesLoading" class="likes-loading">Loading...</div>
+
+        <div *ngIf="!comment.likesLoading && comment.lastLikes && comment.lastLikes.length > 0">
+          <div *ngFor="let like of comment.lastLikes" class="like-user">
+            <img *ngIf="like.photoPath"
+                 [src]="getFullPhotoUrl(like.photoPath)"
+                 class="like-avatar"
+                 alt="avatar"
+                 (error)="$event.target.style.display='none'">
+            <mat-icon *ngIf="!like.photoPath">account_circle</mat-icon>
+            <span>{{ like.profileName }}</span>
+          </div>
+
+          <button mat-stroked-button
+                  color="primary"
+                  class="show-all-likes-btn"
+                  (click)="openLikesDialog(comment, $event)">
+            Show all
+          </button>
+        </div>
+
+        <div *ngIf="!comment.likesLoading && (!comment.lastLikes || comment.lastLikes.length === 0)">
+          No likes yet
+        </div>
+      </div>
+    </ng-container>
+  </div>
+
+  @if (getCommentsCount(comment) > 0) {
+    <button mat-button (click)="toggleComments(comment)">
+      <mat-icon>{{ comment.showComments ? 'expand_less' : 'expand_more' }}</mat-icon>
+      <span>{{ comment.showComments ? 'Hide' : 'Show' }} Comments ({{ getCommentsCount(comment) }})</span>
     </button>
-    @if (canDeleteComment(comment)) {
-      <button mat-button (click)="deleteComment(comment)" color="warn">
-        <mat-icon>delete</mat-icon>
-        <span>Delete</span>
-      </button>
-    }
+  }
+  <!-- остальное без изменений -->
+  <button mat-button (click)="toggleCommentForm(comment)">
+    <mat-icon>add_comment</mat-icon>
+    <span>Reply</span>
+  </button>
+  @if (canDeleteComment(comment)) {
+    <button mat-button (click)="deleteComment(comment)" color="warn">
+      <mat-icon>delete</mat-icon>
+      <span>Delete</span>
+    </button>
+  }
   </mat-card-actions>
 
   @if (comment.showCommentForm) {

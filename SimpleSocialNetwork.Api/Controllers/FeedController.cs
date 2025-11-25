@@ -13,7 +13,7 @@ namespace SimpleSocialNetwork.Controllers
 {
     [ApiController]
     [Route("api/feed")]
-    public class FeedController : ControllerBase
+    public partial class FeedController : ControllerBase
     {
         private readonly IModelFeedService _feeds;
         private readonly IHubContext<FeedHub> _hub;
@@ -25,6 +25,25 @@ namespace SimpleSocialNetwork.Controllers
             _hub  = hub;
             _profiles = profiles;
         }
+
+        [HttpGet("getlastlikes/{feedId}")]
+        [ServiceFilter(typeof(IsAuthenticatedAttribute))]
+        public async Task<ActionResult> GetLastLikes(int feedId, [FromQuery] int count = 5)
+        {
+            var likes = await _feeds.GetLikesForFeedAsync(feedId);
+            var lastLikes = new List<object>();
+            foreach (var l in likes.OrderByDescending(l => l.id).Take(count))
+            {
+                string photoPath = await _profiles.GetPhotoPathAsync(l.profileId);
+                lastLikes.Add(new {
+                    profileName = l.profileName,
+                    token = l.token,
+                    photoPath = string.IsNullOrWhiteSpace(photoPath) ? null : photoPath
+                });
+            }
+            return Ok(lastLikes);
+        }
+
 
         [HttpGet("hello")]
         public ActionResult<string> Hello() => "Hello there";
@@ -181,6 +200,21 @@ namespace SimpleSocialNetwork.Controllers
             }
             
             return NoContent();
+        }
+
+        [HttpGet("getlikesinfo/{feedId}")]
+        [ServiceFilter(typeof(IsAuthenticatedAttribute))]
+        public async Task<ActionResult> GetLikesInfo(int feedId)
+        {
+            // Get userId from HttpContext (set by IsAuthenticatedAttribute)
+            var userId = HttpContext.Items["UserId"] as int?;
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
+            var likes = await _feeds.GetLikesForFeedAsync(feedId);
+            var isLiked = likes.Any(l => l.profileId == userId.Value);
+            return Ok(new { count = likes.Count, isLiked });
         }
     }
 }

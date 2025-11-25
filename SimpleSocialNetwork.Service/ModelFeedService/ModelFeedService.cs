@@ -288,7 +288,6 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
                 .OrderByDescending(f => f.DateAdd)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .OrderBy(f => f.DateAdd)  // Re-order chronologically for display
                 .ToList();
 
             foreach (var c in paginatedComments)

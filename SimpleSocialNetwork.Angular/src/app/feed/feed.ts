@@ -365,16 +365,21 @@ export class FeedComponent implements OnInit, OnDestroy {
       if (item.comments && item.comments.length > 0) {
         const index = item.comments.findIndex(c => c.id === feedId);
         if (index !== -1) {
-          item.comments.splice(index, 1);
-          // Update comment counts
-          if (item.commentsCount !== undefined && item.commentsCount > 0) {
-            item.commentsCount--;
-          }
-          if (item.commentsTotalCount !== undefined && item.commentsTotalCount > 0) {
-            item.commentsTotalCount--;
-          }
-          if (item.commentsTotalPages && item.commentsTotalCount !== undefined) {
-            item.commentsTotalPages = Math.ceil(item.commentsTotalCount / 5);
+          // Reload current page to maintain pagination instead of just removing
+          if (item.showComments && item.commentsPage) {
+            this.loadComments(item, item.commentsPage);
+          } else {
+            // If comments aren't visible, just update counts
+            item.comments.splice(index, 1);
+            if (item.commentsCount !== undefined && item.commentsCount > 0) {
+              item.commentsCount--;
+            }
+            if (item.commentsTotalCount !== undefined && item.commentsTotalCount > 0) {
+              item.commentsTotalCount--;
+            }
+            if (item.commentsTotalPages && item.commentsTotalCount !== undefined) {
+              item.commentsTotalPages = Math.ceil(item.commentsTotalCount / 5);
+            }
           }
           return true;
         }

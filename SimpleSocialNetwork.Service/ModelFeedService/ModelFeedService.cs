@@ -78,6 +78,49 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
             return dtoFeed;
         }
 
+        public DtoFeed GetFeedById(int feedId)
+        {
+            var feed = feedRepo.FirstOrDefaultAsync(f => f.Id == feedId).Result;
+            if (feed == null) return null;
+
+            var dtoLikes = new List<DtoLike>();
+            var likes = likeRepo.WhereAsync(l => l.FeedId == feed.Id).Result;
+            if (likes.Any())
+            {
+                foreach (var l in likes)
+                {
+                    var profile = profileRepo.FirstOrDefaultAsync(p => p.Id == l.ProfileId).Result;
+                    var dtoLike = new DtoLike()
+                    {
+                        id = l.Id,
+                        feedId = l.FeedId,
+                        profileId = l.ProfileId,
+                        profileName = profile?.Name
+                    };
+                    dtoLikes.Add(dtoLike);
+                }
+            }
+
+            var modelProfile = profileRepo.FirstOrDefaultAsync(p => p.Id == feed.ProfileId).Result;
+            if (modelProfile == null) return null;
+
+            var commentsCount = feedRepo.WhereAsync(c => c.ParentId == feed.Id).Result.Count;
+
+            return new DtoFeed()
+            {
+                name = modelProfile.Name,
+                text = feed.Text,
+                date = feed.DateAdd.ToString(),
+                id = feed.Id,
+                parentId = feed.ParentId,
+                profileId = feed.ProfileId,
+                likes = dtoLikes,
+                profilePhotoPath = modelProfile.PhotoPath,
+                comments = new List<DtoFeed>(),
+                commentsCount = commentsCount
+            };
+        }
+
         public async Task<(IEnumerable<DtoFeed> feeds, int totalCount)> GetFeedPaginatedAsync(int page, int pageSize)
         {
             var dtoFeed = new List<DtoFeed>();

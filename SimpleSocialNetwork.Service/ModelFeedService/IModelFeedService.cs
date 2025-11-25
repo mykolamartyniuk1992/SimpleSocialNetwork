@@ -11,6 +11,8 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
     {
         IEnumerable<DtoFeed> GetFeed();
 
+        DtoFeed GetFeedById(int feedId);
+
         Task<(IEnumerable<DtoFeed> feeds, int totalCount)> GetFeedPaginatedAsync(int page, int pageSize);
 
         IEnumerable<DtoFeed> GetAllFeeds();

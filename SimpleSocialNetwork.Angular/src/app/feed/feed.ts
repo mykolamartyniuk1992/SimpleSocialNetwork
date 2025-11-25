@@ -136,11 +136,14 @@ export class FeedComponent implements OnInit, OnDestroy {
     this.hubConnection.on('NewFeedPost', (feedItem: FeedItem) => {
       this.ngZone.run(() => {
         console.log('New feed post received:', feedItem);
-        // Add isLiked flag
-        const currentUserId = this.authService.getUserId();
-        feedItem.isLiked = feedItem.likes?.some(like => like.profileId === currentUserId) || false;
-        // Add new post to the beginning of the feed
-        this.feeds.unshift(feedItem);
+        // Only add if it's truly a top-level post (no parentId)
+        if (!feedItem.parentId) {
+          // Add isLiked flag
+          const currentUserId = this.authService.getUserId();
+          feedItem.isLiked = feedItem.likes?.some(like => like.profileId === currentUserId) || false;
+          // Add new post to the beginning of the feed
+          this.feeds.unshift(feedItem);
+        }
       });
     });
 
@@ -165,20 +168,23 @@ export class FeedComponent implements OnInit, OnDestroy {
       this.ngZone.run(() => {
         console.log('New comment received:', comment);
         if (comment.parentId) {
-          const currentUserId = this.authService.getUserId();
-          comment.isLiked = comment.likes?.some(like => like.profileId === currentUserId) || false;
-          
-          // Find parent and add comment
+          // Find parent in top-level feeds
           const parent = this.feeds.find(f => f.id === comment.parentId);
           if (parent) {
-            if (!parent.comments) {
-              parent.comments = [];
+            // Increment comment count
+            parent.commentsCount = (parent.commentsCount || 0) + 1;
+            parent.commentsTotalCount = (parent.commentsTotalCount || 0) + 1;
+            if (parent.commentsTotalPages) {
+              parent.commentsTotalPages = Math.ceil(parent.commentsTotalCount / 5);
             }
-            parent.comments.push(comment);
-            parent.showComments = true;
+            
+            // Reload current page if comments are visible
+            if (parent.showComments && parent.commentsPage) {
+              this.loadComments(parent, parent.commentsPage);
+            }
           } else {
-            // Parent might be a comment, search nested
-            this.addNestedComment(this.feeds, comment, currentUserId);
+            // Parent might be a nested comment, search recursively
+            this.updateNestedCommentCount(this.feeds, comment.parentId);
           }
         }
       });
@@ -330,19 +336,24 @@ export class FeedComponent implements OnInit, OnDestroy {
     return false;
   }
 
-  private addNestedComment(items: FeedItem[], comment: FeedItem, currentUserId: number | null): boolean {
+  private updateNestedCommentCount(items: FeedItem[], parentId: number): boolean {
     for (const item of items) {
-      if (item.id === comment.parentId) {
-        if (!item.comments) {
-          item.comments = [];
+      if (item.id === parentId) {
+        // Increment comment count
+        item.commentsCount = (item.commentsCount || 0) + 1;
+        item.commentsTotalCount = (item.commentsTotalCount || 0) + 1;
+        if (item.commentsTotalPages) {
+          item.commentsTotalPages = Math.ceil(item.commentsTotalCount / 5);
         }
-        comment.isLiked = comment.likes?.some(like => like.profileId === currentUserId) || false;
-        item.comments.push(comment);
-        item.showComments = true;
+        
+        // Reload current page if comments are visible
+        if (item.showComments && item.commentsPage) {
+          this.loadComments(item, item.commentsPage);
+        }
         return true;
       }
       if (item.comments && item.comments.length > 0) {
-        if (this.addNestedComment(item.comments, comment, currentUserId)) {
+        if (this.updateNestedCommentCount(item.comments, parentId)) {
           return true;
         }
       }

@@ -83,7 +83,7 @@ namespace SimpleSocialNetwork.Controllers
             dto.id = _feeds.AddFeed(dto, userId);
             
             // Get the full feed item with all properties including profilePhotoPath
-            var newFeed = _feeds.GetFeed().FirstOrDefault(f => f.id == dto.id);
+            var newFeed = _feeds.GetFeedById(dto.id);
             if (newFeed != null)
             {
                 if (dto.parentId.HasValue)

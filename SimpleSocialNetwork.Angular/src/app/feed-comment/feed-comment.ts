@@ -263,7 +263,7 @@ export class FeedCommentComponent implements OnInit, OnDestroy {
   }
 
   getCommentsCount(feed: FeedItem): number {
-    return feed.commentsTotalCount || feed.comments?.length || 0;
+    return feed.commentsTotalCount || feed.commentsCount || feed.comments?.length || 0;
   }
 
   deleteComment(feed: FeedItem): void {

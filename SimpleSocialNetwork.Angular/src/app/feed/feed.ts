@@ -5,7 +5,7 @@ interface LastLike {
   token?: string;
   photoPath?: string;
 }
-import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone, HostListener } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -53,6 +53,7 @@ interface FeedItem {
   showLikesPopup?: boolean;
   popupX?: number;
   popupY?: number;
+  popupPosition?: 'top' | 'bottom';
   likesLoading?: boolean;
   lastLikes?: LastLike[];
 }
@@ -89,7 +90,11 @@ export class FeedComponent implements OnInit, OnDestroy {
   pageSize = 5;
   totalCount = 0;
   totalPages = 0;
+  isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+
   private likesHideTimeouts: { [feedId: number]: any } = {};
+  private longPressTimeout: any = null;
+  private longPressTriggered = false;
 
   constructor(
     private http: HttpClient,
@@ -106,6 +111,17 @@ export class FeedComponent implements OnInit, OnDestroy {
     this.messagesLeft = this.authService.getMessagesLeft();
   }
 
+  getLikesPopupStyle(feed: FeedItem): { [key: string]: string } {
+    if (feed.popupX == null || feed.popupY == null) {
+      return {};
+    }
+
+    return {
+      left: `${feed.popupX}px`,
+      top: `${feed.popupY}px`
+    };
+  }
+
   openLikesDialog(feed: FeedItem, event: MouseEvent): void {
     event.stopPropagation();
     this.dialog.open(LikesDialogComponent, {
@@ -114,34 +130,77 @@ export class FeedComponent implements OnInit, OnDestroy {
     });
   }
 
-  showLikesPopup(feed: FeedItem): void {
-    // отменяем возможный таймер скрытия
-    if (this.likesHideTimeouts[feed.id]) {
-      clearTimeout(this.likesHideTimeouts[feed.id]);
-      this.likesHideTimeouts[feed.id] = null;
+  showLikesPopup(feed: FeedItem, event: MouseEvent | TouchEvent): void {
+    // Find the like button element
+    let target: HTMLElement | null = null;
+    if (event instanceof MouseEvent) {
+      target = event.target as HTMLElement;
+    } else if (event instanceof TouchEvent && event.touches.length > 0) {
+      target = event.touches[0].target as HTMLElement;
+    }
+    if (!target) {
+      return;
     }
 
-    feed.showLikesPopup = true;
+    // Find the button element (in case icon/span is clicked)
+    if (target.tagName !== 'BUTTON') {
+      // Try to find a button inside the likes-wrapper (mouseenter on wrapper)
+      const wrapper = target.closest('.likes-wrapper');
+      if (wrapper) {
+        const button = wrapper.querySelector('button');
+        if (button) {
+          target = button as HTMLElement;
+        } else {
+          return;
+        }
+      } else {
+        target = target.closest('button');
+        if (!target) {
+          return;
+        }
+      }
+    }
 
+    // Get bounding rect of the button
+    const rect = target.getBoundingClientRect();
+    const popupWidth = 220; // Approximate popup width
+    const popupHeight = 120; // Approximate popup height
+    const margin = 8;
+    // Connect bottom left of popup to top right of button
+    // Attach bottom left of popup to top right of button
+    let left = rect.right;
+    let top = rect.top - popupHeight;
+    // If not enough space above, show below (attach top left of popup to bottom right of button)
+    if (top < margin) {
+      top = rect.bottom;
+    }
+    // Clamp left to viewport
+    left = Math.max(margin, Math.min(left, window.innerWidth - popupWidth - margin));
+    feed.showLikesPopup = true;
+    feed.popupX = left;
+    feed.popupY = top;
+    (feed as any).popupPosition = top < rect.top ? 'top' : 'bottom';
     if (!feed.lastLikes) {
       feed.likesLoading = true;
-      this.http
-        .get<LastLike[]>(`${environment.apiUrl}/feed/getlastlikes/${feed.id}?count=5`)
-        .subscribe({
-          next: (likes) => {
-            feed.lastLikes = likes;
-            feed.likesLoading = false;
-          },
-          error: () => {
-            feed.lastLikes = [];
-            feed.likesLoading = false;
-          },
-        });
+      this.http.get<LastLike[]>(`${environment.apiUrl}/feed/getlastlikes/${feed.id}?count=5`).subscribe({
+        next: (likes) => {
+          feed.lastLikes = likes;
+          feed.likesLoading = false;
+        },
+        error: () => {
+          feed.lastLikes = [];
+          feed.likesLoading = false;
+        }
+      });
     }
   }
 
   hideLikesPopup(feed: FeedItem): void {
-    // ставим небольшую задержку, чтобы успеть доехать мышкой
+
+    // 📱 Mobile: не скрываем автоматически
+    if (this.isMobile) return;
+
+    // 🖥 Desktop: ставим задержку
     if (this.likesHideTimeouts[feed.id]) {
       clearTimeout(this.likesHideTimeouts[feed.id]);
     }
@@ -149,9 +208,71 @@ export class FeedComponent implements OnInit, OnDestroy {
     this.likesHideTimeouts[feed.id] = setTimeout(() => {
       feed.showLikesPopup = false;
       this.likesHideTimeouts[feed.id] = null;
-    }, 250); // 200–300 мс обычно хватает
+    }, 300);
   }
 
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (!this.isMobile) return; // desktop игнорирует
+
+    const target = event.target as HTMLElement;
+
+    if (target.closest('.likes-wrapper') || target.closest('.likes-popup')) {
+      return;
+    }
+
+    this.feeds.forEach(f => f.showLikesPopup = false);
+  }
+
+  @HostListener('document:touchstart', ['$event'])
+  onDocumentTouchStart(event: TouchEvent): void {
+    if (!this.isMobile) return;
+
+    const target = event.target as HTMLElement;
+
+    if (target.closest('.likes-wrapper') || target.closest('.likes-popup')) {
+      return;
+    }
+
+    this.feeds.forEach(f => f.showLikesPopup = false);
+  }
+
+  onTouchStart(feed: FeedItem, event: TouchEvent): void {
+    if (!this.isMobile) return;
+
+    const target = event.target as HTMLElement;
+
+    // Если тапнули по попапу (аватар, Show all и т.п.) – игнорируем
+    if (target.closest('.likes-popup')) {
+      return;
+    }
+
+    this.longPressTriggered = false;
+
+    this.longPressTimeout = setTimeout(() => {
+      this.longPressTriggered = true;
+      this.showLikesPopup(feed, event);
+    }, 1000); // 1 секунда для долгого нажатия
+  }
+
+  onTouchEnd(feed: FeedItem, event: TouchEvent): void {
+    if (!this.isMobile) return;
+
+    const target = event.target as HTMLElement;
+
+    // Тап внутри попапа – не считаем кликом по лайку
+    if (target.closest('.likes-popup')) {
+      clearTimeout(this.longPressTimeout);
+      return;
+    }
+
+    clearTimeout(this.longPressTimeout);
+
+    // Если long-press не успел сработать – это обычный тап => лайк/дизлайк
+    if (!this.longPressTriggered) {
+      this.toggleLike(feed);
+    }
+  }
 
   get isPostingDisabled(): boolean {
     return !this.authService.isVerified() && this.messagesLeft !== null && this.messagesLeft <= 0;
@@ -160,7 +281,7 @@ export class FeedComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadFeed();
     this.startSignalRConnection();
-    
+
     // Subscribe to profile updates to refresh messagesLeft
     this.profileUpdateSubscription = this.authService.profileUpdated$.subscribe(() => {
       this.messagesLeft = this.authService.getMessagesLeft();
@@ -219,7 +340,7 @@ export class FeedComponent implements OnInit, OnDestroy {
       this.ngZone.run(() => {
         console.log('Feed like updated:', updatedFeed);
         const currentUserId = this.authService.getUserId();
-        
+
         // Find and update the feed item (could be a top-level post or a comment)
         const index = this.feeds.findIndex(f => f.id === updatedFeed.id);
         if (index !== -1) {
@@ -252,7 +373,7 @@ export class FeedComponent implements OnInit, OnDestroy {
             if (parent.commentsTotalPages) {
               parent.commentsTotalPages = Math.ceil(parent.commentsTotalCount / 5);
             }
-            
+
             // Reload current page if comments are visible
             if (parent.showComments && parent.commentsPage) {
               this.loadComments(parent, parent.commentsPage);
@@ -299,11 +420,11 @@ export class FeedComponent implements OnInit, OnDestroy {
         if (currentUserToken === userToken) {
           console.log('Current user account was deleted, redirecting to message page...');
           this.authService.logout();
-          this.router.navigate(['/message'], { 
-            state: { 
-              message: 'Your account has been deleted by an administrator', 
-              icon: 'error' 
-            } 
+          this.router.navigate(['/message'], {
+            state: {
+              message: 'Your account has been deleted by an administrator',
+              icon: 'error'
+            }
           });
         }
       });
@@ -421,7 +542,7 @@ export class FeedComponent implements OnInit, OnDestroy {
         if (item.commentsTotalPages) {
           item.commentsTotalPages = Math.ceil(item.commentsTotalCount / 5);
         }
-        
+
         // Reload current page if comments are visible
         if (item.showComments && item.commentsPage) {
           this.loadComments(item, item.commentsPage);
@@ -523,11 +644,11 @@ export class FeedComponent implements OnInit, OnDestroy {
     const maxVisible = 5;
     let start = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
     let end = Math.min(this.totalPages, start + maxVisible - 1);
-    
+
     if (end - start < maxVisible - 1) {
       start = Math.max(1, end - maxVisible + 1);
     }
-    
+
     for (let i = start; i <= end; i++) {
       pages.push(i);
     }
@@ -577,9 +698,9 @@ export class FeedComponent implements OnInit, OnDestroy {
     if (!currentUserId) {
       return;
     }
-    
+
     this.liking[feed.id] = true;
-    
+
     // Use isLiked flag to determine action
     if (feed.isLiked) {
       // Unlike - find the user's like
@@ -589,7 +710,7 @@ export class FeedComponent implements OnInit, OnDestroy {
         this.liking[feed.id] = false;
         return;
       }
-      
+
       this.http.post(`${environment.apiUrl}/feed/dislike`, { id: userLike.id, feedId: feed.id })
         .subscribe({
           next: () => {
@@ -658,7 +779,7 @@ export class FeedComponent implements OnInit, OnDestroy {
 
   loadComments(feed: FeedItem, page: number = 1): void {
     if (feed.commentsLoading) return;
-    
+
     feed.commentsLoading = true;
     feed.commentsPage = page;
     const pageSize = 5;

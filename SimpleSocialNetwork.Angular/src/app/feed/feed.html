@@ -54,36 +54,55 @@
       <p>{{ feed.text }}</p>
     </mat-card-content>
     <mat-card-actions>
-      <div class="likes-wrapper" (mouseenter)="showLikesPopup(feed)" (mouseleave)="hideLikesPopup(feed)">
-        <button mat-button (click)="toggleLike(feed)" [disabled]="liking[feed.id]"
+      <div class="likes-wrapper"
+     (mouseenter)="showLikesPopup(feed, $event)"
+     (mouseleave)="hideLikesPopup(feed)"
+     (touchstart)="onTouchStart(feed, $event)"
+     (touchend)="onTouchEnd(feed, $event)"
+     (touchcancel)="onTouchEnd(feed, $event)">
+
+  <button mat-button
+          (click)="toggleLike(feed)"
+          [disabled]="liking[feed.id]"
           [color]="feed.isLiked ? 'primary' : ''">
-          <mat-icon>{{ feed.isLiked ? 'thumb_up' : 'thumb_up_off_alt' }}</mat-icon>
-          <span>{{ getLikesCount(feed) }}</span>
-        </button>
+    <mat-icon>{{ feed.isLiked ? 'thumb_up' : 'thumb_up_off_alt' }}</mat-icon>
+    <span>{{ getLikesCount(feed) }}</span>
+  </button>
 
-        <ng-container *ngIf="feed.showLikesPopup">
-          <div class="likes-popup">
-            <div *ngIf="feed.likesLoading" class="likes-loading">Loading...</div>
-
-            <div *ngIf="!feed.likesLoading && feed.lastLikes && feed.lastLikes.length > 0">
-              <div *ngFor="let like of feed.lastLikes" class="like-user">
-                <img *ngIf="like.photoPath" [src]="getFullPhotoUrl(like.photoPath)" class="like-avatar" alt="avatar"
-                  (error)="$event.target.style.display='none'" />
-                <mat-icon *ngIf="!like.photoPath">account_circle</mat-icon>
-                <span>{{ like.profileName }}</span>
-              </div>
-              <button mat-stroked-button color="primary" class="show-all-likes-btn"
-                (click)="openLikesDialog(feed, $event)">
-                Show all
-              </button>
-            </div>
-
-            <div *ngIf="!feed.likesLoading && (!feed.lastLikes || feed.lastLikes.length === 0)">
-              No likes yet
-            </div>
-          </div>
-        </ng-container>
+  <ng-container *ngIf="feed.showLikesPopup">
+        <div class="likes-popup"
+          [ngStyle]="getLikesPopupStyle(feed)"
+          [class.above]="feed.popupPosition === 'top'"
+          [class.below]="feed.popupPosition === 'bottom'">
+      <div *ngIf="feed.likesLoading" class="likes-loading">
+        Loading...
       </div>
+
+      <div *ngIf="!feed.likesLoading && feed.lastLikes && feed.lastLikes.length > 0">
+        <div *ngFor="let like of feed.lastLikes" class="like-user">
+          <img *ngIf="like.photoPath"
+               [src]="getFullPhotoUrl(like.photoPath)"
+               class="like-avatar"
+               alt="avatar"
+               (error)="$event.target.style.display='none'" />
+          <mat-icon *ngIf="!like.photoPath">account_circle</mat-icon>
+          <span>{{ like.profileName }}</span>
+        </div>
+
+        <button mat-stroked-button
+                color="primary"
+                class="show-all-likes-btn"
+                (click)="openLikesDialog(feed, $event)">
+          Show all
+        </button>
+      </div>
+
+      <div *ngIf="!feed.likesLoading && (!feed.lastLikes || feed.lastLikes.length === 0)">
+        No likes yet
+      </div>
+    </div>
+  </ng-container>
+</div>
       @if (getCommentsCount(feed) > 0) {
       <button mat-button (click)="toggleComments(feed)">
         <mat-icon>{{ feed.showComments ? 'expand_less' : 'expand_more' }}</mat-icon>

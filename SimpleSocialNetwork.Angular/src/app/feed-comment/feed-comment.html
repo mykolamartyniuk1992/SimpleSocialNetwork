@@ -2,7 +2,10 @@
   <mat-card-header>
     <div mat-card-avatar class="comment-avatar">
       @if (comment.profilePhotoPath) {
-        <img [src]="getFullPhotoUrl(comment.profilePhotoPath)" alt="Profile" class="avatar-photo">
+        <img
+          [src]="getFullPhotoUrl(comment.profilePhotoPath)"
+          alt="Profile"
+          class="avatar-photo">
       } @else {
         <mat-icon>account_circle</mat-icon>
       }
@@ -10,83 +13,141 @@
     <mat-card-title>{{ comment.name }}</mat-card-title>
     <mat-card-subtitle>{{ comment.date }}</mat-card-subtitle>
   </mat-card-header>
+
   <mat-card-content>
     <p>{{ comment.text }}</p>
   </mat-card-content>
+
   <mat-card-actions>
-    <div class="likes-wrapper"
-       (mouseenter)="showLikesPopup(comment)"
-       (mouseleave)="hideLikesPopup(comment)">
+    <!-- ЛАЙК + ПОПАП -->
+    <div
+      #likesWrapper
+      class="likes-wrapper"
+      (mouseenter)="showLikesPopup(comment, $event)"
+      (mouseleave)="hideLikesPopup(comment)"
+      (touchstart)="onTouchStart(comment, $event)"
+      (touchend)="onTouchEnd(comment, $event)"
+      (touchcancel)="onTouchEnd(comment, $event)">
 
-    <button mat-button
-            (click)="toggleLike(comment)"
-            [disabled]="liking[comment.id]"
-            [color]="comment.isLiked ? 'primary' : ''">
-      <mat-icon>{{ comment.isLiked ? 'thumb_up' : 'thumb_up_off_alt' }}</mat-icon>
-      <span>{{ getLikesCount(comment) }}</span>
-    </button>
+      <button
+        mat-button
+        (click)="toggleLike(comment)"
+        [disabled]="liking[comment.id]"
+        [color]="comment.isLiked ? 'primary' : ''">
+        <mat-icon>
+          {{ comment.isLiked ? 'thumb_up' : 'thumb_up_off_alt' }}
+        </mat-icon>
+        <span>{{ getLikesCount(comment) }}</span>
+      </button>
 
-    <ng-container *ngIf="comment.showLikesPopup">
-      <div class="likes-popup">
-        <div *ngIf="comment.likesLoading" class="likes-loading">Loading...</div>
+      <ng-container *ngIf="comment.showLikesPopup">
+        <div
+          class="likes-popup"
+          [ngStyle]="{
+              position: 'fixed',
+              top:  (comment.popupY || 0) + 'px',
+              left: (comment.popupX || 0) + 'px',
+              bottom: 'auto',
+              transform: 'none',
+              'z-index': 1000
+            }"
+          [class.above]="comment.popupPosition === 'top'"
+          [class.below]="comment.popupPosition === 'bottom'">
 
-        <div *ngIf="!comment.likesLoading && comment.lastLikes && comment.lastLikes.length > 0">
-          <div *ngFor="let like of comment.lastLikes" class="like-user">
-            <img *ngIf="like.photoPath"
-                 [src]="getFullPhotoUrl(like.photoPath)"
-                 class="like-avatar"
-                 alt="avatar"
-                 (error)="$event.target.style.display='none'">
-            <mat-icon *ngIf="!like.photoPath">account_circle</mat-icon>
-            <span>{{ like.profileName }}</span>
+          <div *ngIf="comment.likesLoading" class="likes-loading">
+            Loading...
           </div>
 
-          <button mat-stroked-button
-                  color="primary"
-                  class="show-all-likes-btn"
-                  (click)="openLikesDialog(comment, $event)">
-            Show all
-          </button>
-        </div>
+          <div
+            *ngIf="
+              !comment.likesLoading &&
+              comment.lastLikes &&
+              comment.lastLikes.length > 0
+            ">
+            <div *ngFor="let like of comment.lastLikes" class="like-user">
+              <img
+                *ngIf="like.photoPath"
+                [src]="getFullPhotoUrl(like.photoPath)"
+                class="like-avatar"
+                alt="avatar"
+                (error)="$event.target.style.display='none'">
+              <mat-icon *ngIf="!like.photoPath">account_circle</mat-icon>
+              <span>{{ like.profileName }}</span>
+            </div>
 
-        <div *ngIf="!comment.likesLoading && (!comment.lastLikes || comment.lastLikes.length === 0)">
-          No likes yet
-        </div>
-      </div>
-    </ng-container>
-  </div>
+            <button
+              mat-stroked-button
+              color="primary"
+              class="show-all-likes-btn"
+              (click)="openLikesDialog(comment, $event)">
+              Show all
+            </button>
+          </div>
 
-  @if (getCommentsCount(comment) > 0) {
-    <button mat-button (click)="toggleComments(comment)">
-      <mat-icon>{{ comment.showComments ? 'expand_less' : 'expand_more' }}</mat-icon>
-      <span>{{ comment.showComments ? 'Hide' : 'Show' }} Comments ({{ getCommentsCount(comment) }})</span>
+          <div
+            *ngIf="
+              !comment.likesLoading &&
+              (!comment.lastLikes || comment.lastLikes.length === 0)
+            ">
+            No likes yet
+          </div>
+        </div>
+      </ng-container>
+    </div>
+
+    @if (getCommentsCount(comment) > 0) {
+      <button mat-button (click)="toggleComments(comment)">
+        <mat-icon>
+          {{ comment.showComments ? 'expand_less' : 'expand_more' }}
+        </mat-icon>
+        <span>
+          {{ comment.showComments ? 'Hide' : 'Show' }}
+          Comments ({{ getCommentsCount(comment) }})
+        </span>
+      </button>
+    }
+
+    <button mat-button (click)="toggleCommentForm(comment)">
+      <mat-icon>add_comment</mat-icon>
+      <span>Reply</span>
     </button>
-  }
-  <!-- остальное без изменений -->
-  <button mat-button (click)="toggleCommentForm(comment)">
-    <mat-icon>add_comment</mat-icon>
-    <span>Reply</span>
-  </button>
-  @if (canDeleteComment(comment)) {
-    <button mat-button (click)="deleteComment(comment)" color="warn">
-      <mat-icon>delete</mat-icon>
-      <span>Delete</span>
-    </button>
-  }
+
+    @if (canDeleteComment(comment)) {
+      <button mat-button (click)="deleteComment(comment)" color="warn">
+        <mat-icon>delete</mat-icon>
+        <span>Delete</span>
+      </button>
+    }
   </mat-card-actions>
 
   @if (comment.showCommentForm) {
     <mat-card-content class="comment-form">
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Write a reply...</mat-label>
-        <textarea matInput [(ngModel)]="comment.commentText" rows="2" maxlength="500" [disabled]="isPostingDisabled"></textarea>
+        <textarea
+          matInput
+          [(ngModel)]="comment.commentText"
+          rows="2"
+          maxlength="500"
+          [disabled]="isPostingDisabled">
+        </textarea>
         @if (isPostingDisabled) {
-          <mat-error>You have reached your message limit. Cannot post more replies.</mat-error>
+          <mat-error>
+            You have reached your message limit. Cannot post more replies.
+          </mat-error>
         }
       </mat-form-field>
       <div class="comment-actions">
         <button mat-button (click)="toggleCommentForm(comment)">Cancel</button>
-        <button mat-raised-button color="primary" (click)="submitComment(comment)" [disabled]="!comment.commentText || comment.commentText.trim() === '' || isPostingDisabled">
+        <button
+          mat-raised-button
+          color="primary"
+          (click)="submitComment(comment)"
+          [disabled]="
+            !comment.commentText ||
+            comment.commentText.trim() === '' ||
+            isPostingDisabled
+          ">
           <mat-icon>send</mat-icon>
           Post Reply
         </button>
@@ -103,24 +164,53 @@
       }
       @if (comment.commentsTotalPages && comment.commentsTotalPages > 1) {
         <div class="pagination-container comment-pagination">
-          <button mat-icon-button (click)="goToFirstCommentPage(comment)" [disabled]="comment.commentsPage === 1 || comment.commentsLoading" matTooltip="First Page">
+          <button
+            mat-icon-button
+            (click)="goToFirstCommentPage(comment)"
+            [disabled]="comment.commentsPage === 1 || comment.commentsLoading"
+            matTooltip="First Page">
             <mat-icon>first_page</mat-icon>
           </button>
-          <button mat-icon-button (click)="goToPreviousCommentPage(comment)" [disabled]="comment.commentsPage === 1 || comment.commentsLoading" matTooltip="Previous Page">
+          <button
+            mat-icon-button
+            (click)="goToPreviousCommentPage(comment)"
+            [disabled]="comment.commentsPage === 1 || comment.commentsLoading"
+            matTooltip="Previous Page">
             <mat-icon>chevron_left</mat-icon>
           </button>
           @for (page of getCommentPageNumbers(comment); track page) {
-            <button mat-mini-fab [color]="comment.commentsPage === page ? 'primary' : ''" (click)="goToCommentPage(comment, page)" class="page-number" [disabled]="comment.commentsLoading">
+            <button
+              mat-mini-fab
+              [color]="comment.commentsPage === page ? 'primary' : ''"
+              (click)="goToCommentPage(comment, page)"
+              class="page-number"
+              [disabled]="comment.commentsLoading">
               {{ page }}
             </button>
           }
-          <button mat-icon-button (click)="goToNextCommentPage(comment)" [disabled]="comment.commentsPage === comment.commentsTotalPages || comment.commentsLoading" matTooltip="Next Page">
+          <button
+            mat-icon-button
+            (click)="goToNextCommentPage(comment)"
+            [disabled]="
+              comment.commentsPage === comment.commentsTotalPages ||
+              comment.commentsLoading
+            "
+            matTooltip="Next Page">
             <mat-icon>chevron_right</mat-icon>
           </button>
-          <button mat-icon-button (click)="goToLastCommentPage(comment)" [disabled]="comment.commentsPage === comment.commentsTotalPages || comment.commentsLoading" matTooltip="Last Page">
+          <button
+            mat-icon-button
+            (click)="goToLastCommentPage(comment)"
+            [disabled]="
+              comment.commentsPage === comment.commentsTotalPages ||
+              comment.commentsLoading
+            "
+            matTooltip="Last Page">
             <mat-icon>last_page</mat-icon>
           </button>
-          <span class="page-info">Page {{ comment.commentsPage }} of {{ comment.commentsTotalPages }}</span>
+          <span class="page-info">
+            Page {{ comment.commentsPage }} of {{ comment.commentsTotalPages }}
+          </span>
         </div>
       }
     </mat-card-content>

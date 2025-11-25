@@ -72,6 +72,12 @@
   margin-left: 8px;
 }
 
+/* ---------- POPUP ЛАЙКОВ ДЛЯ КОММЕНТОВ ---------- */
+
+.likes-wrapper {
+  position: relative;
+  display: inline-block;
+}
 
 .likes-wrapper {
   position: relative;
@@ -79,21 +85,26 @@
 }
 
 .likes-popup {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
+  position: fixed !important;
+  z-index: 2000;
   background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  padding: 8px 12px;
-  min-width: 180px;
-  max-width: 240px;
-  max-height: 220px;
-  overflow-y: auto;
-  font-size: 14px;
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: 0px 4px 12px rgba(0,0,0,0.15);
+  width: 220px;
+  height: 120px;
+  min-width: 220px;
+  min-height: 120px;
+  max-width: 220px;
+  max-height: 120px;
+  overflow: hidden;
+  border: 1px solid #ddd;
+
+  /* убираем старое позиционирование! */
+  /* bottom: auto !important; */
+  /* top: auto !important; */
+  /* left: auto !important; */
+  transform: none !important;
 }
 
 .like-user {
@@ -118,6 +129,6 @@
 }
 
 .show-all-likes-btn {
-  margin-top: 8px;
+  margin-top: 6px;
   width: 100%;
 }

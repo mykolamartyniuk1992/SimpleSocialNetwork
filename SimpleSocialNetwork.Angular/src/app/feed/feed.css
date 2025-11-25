@@ -1,27 +1,29 @@
-/* Likes popup styles */
+/* Likes popup styles (FEED) */
 .likes-popup {
-  position: absolute;
-  bottom: calc(100% + 8px); /* над кнопкой, с отступом */
-  left: 50%;
-  transform: translateX(-50%);
+  position: fixed;              /* снова привязка к окну */
   z-index: 1000;
   background: #fff;
   border: 1px solid #ccc;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   padding: 8px 12px;
-  min-width: 180px;
-  max-width: 240px;
-  max-height: 220px;
-  overflow-y: auto;
+  width: 220px;
+  height: 120px;
+  min-width: 220px;
+  min-height: 120px;
+  max-width: 220px;
+  max-height: 120px;
+  overflow: hidden;
   font-size: 14px;
 }
+
 .like-user {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
 }
+
 .like-avatar {
   width: 28px;
   height: 28px;
@@ -29,11 +31,14 @@
   object-fit: cover;
   background: #eee;
 }
+
 .likes-loading {
   text-align: center;
   color: #888;
   padding: 8px 0;
 }
+
+/* --- ОБЩИЙ КОНТЕЙНЕР --- */
 .feed-container {
   max-width: 800px;
   margin: 0 auto;
@@ -44,6 +49,45 @@
   margin-bottom: 20px;
 }
 
+/* --- КАРТОЧКА ПОСТА: как у comment-item --- */
+.feed-item {
+  margin-bottom: 12px;
+  background-color: #f5f5f5;      /* тот же светло-серый фон */
+}
+
+/* текст поста — как у комментариев */
+.feed-item mat-card-content p {
+  white-space: pre-wrap;
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+/* --- АВАТАР: как в comment-avatar/avatar-photo --- */
+.feed-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.avatar-photo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: #e0e0e0;
+}
+
+.feed-avatar mat-icon {
+  font-size: 32px;
+  width: 32px;
+  height: 32px;
+  color: #757575;
+}
+
+/* --- форма создания поста и комментарии оставляем почти как были --- */
 .create-post-card {
   margin-bottom: 24px;
 }
@@ -68,32 +112,6 @@
   padding: 40px;
 }
 
-.feed-item {
-  margin-bottom: 16px;
-}
-
-.feed-item mat-card-content p {
-  white-space: pre-wrap;
-  margin: 16px 0;
-}
-
-.feed-avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-}
-
-.avatar-photo {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-  background-color: #e0e0e0;
-}
-
 .comment-form {
   padding: 16px;
   background-color: #f5f5f5;
@@ -113,29 +131,7 @@
   border-top: 1px solid #e0e0e0;
 }
 
-.feed-avatar mat-icon {
-  font-size: 40px;
-  width: 40px;
-  height: 40px;
-  color: #757575;
-}
-
-.load-more-section {
-  display: flex;
-  justify-content: center;
-  padding: 16px 0;
-}
-
-.load-more-section button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.load-more-section mat-spinner {
-  display: inline-block;
-}
-
+/* пагинация фида */
 .pagination-container {
   display: flex;
   align-items: center;
@@ -155,6 +151,7 @@
   font-size: 14px;
 }
 
+/* обёртка лайка */
 .likes-wrapper {
   position: relative;
   display: inline-block;

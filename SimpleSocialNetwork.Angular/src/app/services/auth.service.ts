@@ -89,6 +89,11 @@ export class AuthService {
     this.profileUpdated.next();
   }
 
+  updateVerified(verified: boolean): void {
+    localStorage.setItem(this.IS_VERIFIED_KEY, verified.toString());
+    this.profileUpdated.next();
+  }
+
   logout(): void {
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_ID_KEY);

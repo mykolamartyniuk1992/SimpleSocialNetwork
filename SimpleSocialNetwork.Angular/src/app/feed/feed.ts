@@ -256,6 +256,47 @@ export class FeedComponent implements OnInit, OnDestroy {
         }
       });
     });
+
+    this.hubConnection.on('UserVerificationChanged', (userToken: string, verified: boolean) => {
+      this.ngZone.run(() => {
+        console.log('UserVerificationChanged received for token:', userToken, 'Verified:', verified);
+        const currentUserToken = this.authService.getToken();
+        if (currentUserToken === userToken) {
+          console.log('Current user verification status changed to:', verified);
+          this.authService.updateVerified(verified);
+          if (verified) {
+            this.authService.updateMessagesLeft(null);
+            this.snackBar.open('Your account has been verified! You now have unlimited messages.', 'Close', {
+              duration: 5000,
+              horizontalPosition: 'center',
+              verticalPosition: 'top'
+            });
+          } else {
+            // Fetch message limit from backend when unverified to restore the counter
+            this.http.get<{ messagesLeft: number | null }>(`${environment.apiUrl}/profile/GetCurrentUserMessagesLeft`)
+              .subscribe({
+                next: (response) => {
+                  console.log('Fetched messagesLeft after unverification:', response.messagesLeft);
+                  this.authService.updateMessagesLeft(response.messagesLeft);
+                  this.snackBar.open('Your account verification has been removed. Message limit restored.', 'Close', {
+                    duration: 5000,
+                    horizontalPosition: 'center',
+                    verticalPosition: 'top'
+                  });
+                },
+                error: (error) => {
+                  console.error('Failed to fetch messagesLeft after unverification', error);
+                  this.snackBar.open('Your account verification has been removed.', 'Close', {
+                    duration: 5000,
+                    horizontalPosition: 'center',
+                    verticalPosition: 'top'
+                  });
+                }
+              });
+          }
+        }
+      });
+    });
   }
 
   private updateNestedComment(items: FeedItem[], updatedItem: FeedItem, currentUserId: number | null): boolean {

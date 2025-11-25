@@ -100,13 +100,16 @@ public class ProfileController : ControllerBase
 
         try
         {
-            // Update verification status and clear token in one call to avoid EF tracking conflicts
-            var userToken = await _profileService.SetVerifiedAndClearTokenAsync(request.ProfileId, request.Verified);
+            // Get user token before updating
+            var userToken = await _profileService.GetUserTokenAsync(request.ProfileId);
             
-            // Notify the specific user to logout via SignalR
+            // Update verification status
+            await _profileService.SetVerifiedAsync(request.ProfileId, request.Verified);
+            
+            // Notify the specific user about verification change via SignalR
             if (!string.IsNullOrEmpty(userToken))
             {
-                await _hubContext.Clients.All.SendAsync("ForceLogout", userToken);
+                await _hubContext.Clients.All.SendAsync("UserVerificationChanged", userToken, request.Verified);
             }
 
             return Ok(new { message = $"User verification status updated to {request.Verified}" });

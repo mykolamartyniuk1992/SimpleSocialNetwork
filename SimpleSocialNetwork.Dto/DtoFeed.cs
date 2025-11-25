@@ -25,5 +25,7 @@ namespace SimpleSocialNetwork.Dto
         public string profilePhotoPath { get; set; }
         [DataMember]
         public List<DtoFeed> comments { get; set; }
+        [DataMember]
+        public int commentsCount { get; set; }
     }
 }

@@ -93,14 +93,67 @@
           </mat-card-content>
         }
 
-        @if (feed.showComments && feed.comments && feed.comments.length > 0) {
+        @if (feed.showComments) {
           <mat-card-content class="comments-section">
-            @for (comment of feed.comments; track comment.id) {
-              <app-feed-comment [comment]="comment"></app-feed-comment>
+            @if (feed.comments && feed.comments.length > 0) {
+              @for (comment of feed.comments; track comment.id) {
+                <app-feed-comment [comment]="comment"></app-feed-comment>
+              }
+            }
+            @if (feed.commentsTotalPages && feed.commentsTotalPages > 1) {
+              <div class="pagination-container comment-pagination">
+                <button mat-icon-button (click)="goToFirstCommentPage(feed)" [disabled]="feed.commentsPage === 1 || feed.commentsLoading" matTooltip="First Page">
+                  <mat-icon>first_page</mat-icon>
+                </button>
+                <button mat-icon-button (click)="goToPreviousCommentPage(feed)" [disabled]="feed.commentsPage === 1 || feed.commentsLoading" matTooltip="Previous Page">
+                  <mat-icon>chevron_left</mat-icon>
+                </button>
+                @for (page of getCommentPageNumbers(feed); track page) {
+                  <button mat-mini-fab [color]="feed.commentsPage === page ? 'primary' : ''" (click)="goToCommentPage(feed, page)" class="page-number" [disabled]="feed.commentsLoading">
+                    {{ page }}
+                  </button>
+                }
+                <button mat-icon-button (click)="goToNextCommentPage(feed)" [disabled]="feed.commentsPage === feed.commentsTotalPages || feed.commentsLoading" matTooltip="Next Page">
+                  <mat-icon>chevron_right</mat-icon>
+                </button>
+                <button mat-icon-button (click)="goToLastCommentPage(feed)" [disabled]="feed.commentsPage === feed.commentsTotalPages || feed.commentsLoading" matTooltip="Last Page">
+                  <mat-icon>last_page</mat-icon>
+                </button>
+                <span class="page-info">Page {{ feed.commentsPage }} of {{ feed.commentsTotalPages }}</span>
+              </div>
             }
           </mat-card-content>
         }
       </mat-card>
+    }
+    
+    @if (totalPages > 1) {
+      <div class="pagination-container">
+        <button mat-icon-button (click)="goToFirstPage()" [disabled]="currentPage === 1" matTooltip="First Page">
+          <mat-icon>first_page</mat-icon>
+        </button>
+        <button mat-icon-button (click)="goToPreviousPage()" [disabled]="currentPage === 1" matTooltip="Previous Page">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        
+        @for (pageNum of getPageNumbers(); track pageNum) {
+          <button mat-raised-button 
+                  [color]="pageNum === currentPage ? 'primary' : ''" 
+                  (click)="goToPage(pageNum)"
+                  class="page-number">
+            {{ pageNum }}
+          </button>
+        }
+        
+        <button mat-icon-button (click)="goToNextPage()" [disabled]="currentPage === totalPages" matTooltip="Next Page">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+        <button mat-icon-button (click)="goToLastPage()" [disabled]="currentPage === totalPages" matTooltip="Last Page">
+          <mat-icon>last_page</mat-icon>
+        </button>
+        
+        <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
+      </div>
     }
   }
 </div>

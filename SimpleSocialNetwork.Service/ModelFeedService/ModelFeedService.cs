@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SimpleSocialNetwork.Data;
 using SimpleSocialNetwork.Data.Repositories;
@@ -30,7 +31,7 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
         {
             var dtoFeed = new List<DtoFeed>();
 
-            // Only get top-level posts (no parent)
+            // Only get top-level posts (no parent), no nested comments
             var feed = feedRepo.WhereAsync(f => f.ParentId == null).Result;
             foreach (var f in feed)
             {
@@ -54,6 +55,9 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
                 ModelProfile modelProfile = profileRepo.FirstOrDefaultAsync(p => p.Id == f.ProfileId).Result;
                 if (modelProfile != null)
                 {
+                    // Count total comments for this post
+                    var commentsCount = feedRepo.WhereAsync(c => c.ParentId == f.Id).Result.Count;
+                    
                     dtoFeed.Add(new DtoFeed()
                     {
                         name = modelProfile.Name,
@@ -63,13 +67,74 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
                         parentId = f.ParentId,
                         profileId = f.ProfileId,
                         likes = dtoLikes,
-                        profilePhotoPath = modelProfile.PhotoPath
+                        profilePhotoPath = modelProfile.PhotoPath,
+                        comments = new List<DtoFeed>(), // Empty, will be loaded on demand
+                        commentsCount = commentsCount
                     });
                 }
                 
             }
 
             return dtoFeed;
+        }
+
+        public async Task<(IEnumerable<DtoFeed> feeds, int totalCount)> GetFeedPaginatedAsync(int page, int pageSize)
+        {
+            var dtoFeed = new List<DtoFeed>();
+
+            // Get all top-level posts
+            var allFeeds = await feedRepo.WhereAsync(f => f.ParentId == null);
+            var totalCount = allFeeds.Count;
+
+            // Apply pagination - order by date descending, newest first
+            var paginatedFeeds = allFeeds
+                .OrderByDescending(f => f.DateAdd)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            foreach (var f in paginatedFeeds)
+            {
+                var dtoLikes = new List<DtoLike>();
+                var likes = await likeRepo.WhereAsync(l => l.FeedId == f.Id);
+                if (likes.Any())
+                {
+                    foreach (var l in likes)
+                    {
+                        var profile = await profileRepo.FirstOrDefaultAsync(p => p.Id == l.ProfileId);
+                        var dtoLike = new DtoLike()
+                        {
+                            id = l.Id,
+                            feedId = l.FeedId,
+                            profileId = l.ProfileId,
+                            profileName = profile?.Name
+                        };
+                        dtoLikes.Add(dtoLike);
+                    }
+                }
+                ModelProfile modelProfile = await profileRepo.FirstOrDefaultAsync(p => p.Id == f.ProfileId);
+                if (modelProfile != null)
+                {
+                    // Count total comments for this post
+                    var commentsCount = (await feedRepo.WhereAsync(c => c.ParentId == f.Id)).Count;
+                    
+                    dtoFeed.Add(new DtoFeed()
+                    {
+                        name = modelProfile.Name,
+                        text = f.Text,
+                        date = f.DateAdd.ToString(),
+                        id = f.Id,
+                        parentId = f.ParentId,
+                        profileId = f.ProfileId,
+                        likes = dtoLikes,
+                        profilePhotoPath = modelProfile.PhotoPath,
+                        comments = new List<DtoFeed>(),
+                        commentsCount = commentsCount
+                    });
+                }
+            }
+
+            return (dtoFeed, totalCount);
         }
 
         public IEnumerable<DtoFeed> GetAllFeeds()
@@ -121,7 +186,7 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
         {
             var dtoComments = new List<DtoFeed>();
 
-            // Get comments for this feed
+            // Get comments for this feed WITHOUT nested comments
             var comments = feedRepo.WhereAsync(f => f.ParentId == feedId).Result;
             foreach (var c in comments)
             {
@@ -145,8 +210,8 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
                 ModelProfile modelProfile = profileRepo.FirstOrDefaultAsync(p => p.Id == c.ProfileId).Result;
                 if (modelProfile != null)
                 {
-                    // Recursively get nested comments
-                    var nestedComments = GetComments(c.Id).ToList();
+                    // Count nested comments
+                    var nestedCommentsCount = feedRepo.WhereAsync(nc => nc.ParentId == c.Id).Result.Count;
                     
                     dtoComments.Add(new DtoFeed()
                     {
@@ -158,12 +223,73 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
                         profileId = c.ProfileId,
                         likes = dtoLikes,
                         profilePhotoPath = modelProfile.PhotoPath,
-                        comments = nestedComments
+                        comments = new List<DtoFeed>(), // Empty, will be loaded on demand
+                        commentsCount = nestedCommentsCount
                     });
                 }
             }
 
             return dtoComments;
+        }
+
+        public async Task<(IEnumerable<DtoFeed> comments, int totalCount)> GetCommentsPaginatedAsync(int feedId, int page, int pageSize)
+        {
+            var dtoComments = new List<DtoFeed>();
+
+            // Get all comments for this feed
+            var allComments = await feedRepo.WhereAsync(f => f.ParentId == feedId);
+            var totalCount = allComments.Count;
+
+            // Apply pagination - order by date descending to get most recent first
+            var paginatedComments = allComments
+                .OrderByDescending(f => f.DateAdd)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .OrderBy(f => f.DateAdd)  // Re-order chronologically for display
+                .ToList();
+
+            foreach (var c in paginatedComments)
+            {
+                var dtoLikes = new List<DtoLike>();
+                var likes = await likeRepo.WhereAsync(l => l.FeedId == c.Id);
+                if (likes.Any())
+                {
+                    foreach (var l in likes)
+                    {
+                        var profile = await profileRepo.FirstOrDefaultAsync(p => p.Id == l.ProfileId);
+                        var dtoLike = new DtoLike()
+                        {
+                            id = l.Id,
+                            feedId = l.FeedId,
+                            profileId = l.ProfileId,
+                            profileName = profile?.Name
+                        };
+                        dtoLikes.Add(dtoLike);
+                    }
+                }
+                ModelProfile modelProfile = await profileRepo.FirstOrDefaultAsync(p => p.Id == c.ProfileId);
+                if (modelProfile != null)
+                {
+                    // Count nested comments
+                    var nestedCommentsCount = (await feedRepo.WhereAsync(nc => nc.ParentId == c.Id)).Count;
+                    
+                    dtoComments.Add(new DtoFeed()
+                    {
+                        name = modelProfile.Name,
+                        text = c.Text,
+                        date = c.DateAdd.ToString(),
+                        id = c.Id,
+                        parentId = c.ParentId,
+                        profileId = c.ProfileId,
+                        likes = dtoLikes,
+                        profilePhotoPath = modelProfile.PhotoPath,
+                        comments = new List<DtoFeed>(),
+                        commentsCount = nestedCommentsCount
+                    });
+                }
+            }
+
+            return (dtoComments, totalCount);
         }
 
         public int AddFeed(DtoFeed dtoFeed, int? userId = null)

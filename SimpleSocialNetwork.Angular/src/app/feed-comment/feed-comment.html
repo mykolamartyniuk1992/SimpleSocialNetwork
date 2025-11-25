@@ -55,10 +55,34 @@
     </mat-card-content>
   }
 
-  @if (comment.showComments && comment.comments && comment.comments.length > 0) {
+  @if (comment.showComments) {
     <mat-card-content class="nested-comments">
-      @for (nestedComment of comment.comments; track nestedComment.id) {
-        <app-feed-comment [comment]="nestedComment"></app-feed-comment>
+      @if (comment.comments && comment.comments.length > 0) {
+        @for (nestedComment of comment.comments; track nestedComment.id) {
+          <app-feed-comment [comment]="nestedComment"></app-feed-comment>
+        }
+      }
+      @if (comment.commentsTotalPages && comment.commentsTotalPages > 1) {
+        <div class="pagination-container comment-pagination">
+          <button mat-icon-button (click)="goToFirstCommentPage(comment)" [disabled]="comment.commentsPage === 1 || comment.commentsLoading" matTooltip="First Page">
+            <mat-icon>first_page</mat-icon>
+          </button>
+          <button mat-icon-button (click)="goToPreviousCommentPage(comment)" [disabled]="comment.commentsPage === 1 || comment.commentsLoading" matTooltip="Previous Page">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          @for (page of getCommentPageNumbers(comment); track page) {
+            <button mat-mini-fab [color]="comment.commentsPage === page ? 'primary' : ''" (click)="goToCommentPage(comment, page)" class="page-number" [disabled]="comment.commentsLoading">
+              {{ page }}
+            </button>
+          }
+          <button mat-icon-button (click)="goToNextCommentPage(comment)" [disabled]="comment.commentsPage === comment.commentsTotalPages || comment.commentsLoading" matTooltip="Next Page">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+          <button mat-icon-button (click)="goToLastCommentPage(comment)" [disabled]="comment.commentsPage === comment.commentsTotalPages || comment.commentsLoading" matTooltip="Last Page">
+            <mat-icon>last_page</mat-icon>
+          </button>
+          <span class="page-info">Page {{ comment.commentsPage }} of {{ comment.commentsTotalPages }}</span>
+        </div>
       }
     </mat-card-content>
   }

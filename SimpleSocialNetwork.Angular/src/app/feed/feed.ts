@@ -33,9 +33,15 @@ interface FeedItem {
   profilePhotoPath?: string;
   parentId?: number;
   comments?: FeedItem[];
+  commentsCount?: number;
   showComments?: boolean;
   showCommentForm?: boolean;
   commentText?: string;
+  commentsPage?: number;
+  commentsLoading?: boolean;
+  hasMoreComments?: boolean;
+  commentsTotalCount?: number;
+  commentsTotalPages?: number;
 }
 
 @Component({
@@ -65,6 +71,10 @@ export class FeedComponent implements OnInit, OnDestroy {
   private hubConnection?: signalR.HubConnection;
   private profileUpdateSubscription?: any;
   messagesLeft: number | null = null;
+  currentPage = 1;
+  pageSize = 5;
+  totalCount = 0;
+  totalPages = 0;
 
   constructor(private http: HttpClient, private fb: FormBuilder, private authService: AuthService, private ngZone: NgZone, private router: Router, private snackBar: MatSnackBar) {
     this.postForm = this.fb.group({
@@ -356,32 +366,70 @@ export class FeedComponent implements OnInit, OnDestroy {
     return false;
   }
 
-  loadFeed(): void {
+  loadFeed(page: number = 1): void {
     this.loading = true;
-    this.http.post<FeedItem[]>(`${environment.apiUrl}/feed/getfeed`, {})
-      .subscribe({
-        next: (data) => {
-          const currentUserId = this.authService.getUserId();
-          // Check if current user has liked each post
-          this.feeds = data.map(feed => ({
-            ...feed,
-            isLiked: feed.likes?.some(like => like.profileId === currentUserId) || false
-          }));
-          this.loading = false;
-          // Clear all liking flags
-          this.liking = {};
-          
-          // Load comments for each feed that has comments
-          this.feeds.forEach(feed => {
-            this.loadComments(feed);
-          });
-        },
-        error: (error) => {
-          console.error('Failed to load feed', error);
-          this.loading = false;
-          this.liking = {};
-        }
-      });
+    this.currentPage = page;
+    this.http.get<{ feeds: FeedItem[], totalCount: number, page: number, pageSize: number }>(
+      `${environment.apiUrl}/feed/getfeedpaginated?page=${page}&pageSize=${this.pageSize}`
+    ).subscribe({
+      next: (response) => {
+        const currentUserId = this.authService.getUserId();
+        this.feeds = response.feeds.map(feed => ({
+          ...feed,
+          isLiked: feed.likes?.some(like => like.profileId === currentUserId) || false,
+          comments: [],
+          commentsPage: 0,
+          hasMoreComments: (feed.commentsCount || 0) > 0
+        }));
+        this.totalCount = response.totalCount;
+        this.totalPages = Math.ceil(this.totalCount / this.pageSize);
+        this.loading = false;
+        this.liking = {};
+      },
+      error: (error) => {
+        console.error('Failed to load feed', error);
+        this.loading = false;
+        this.liking = {};
+      }
+    });
+  }
+
+  goToPage(page: number): void {
+    if (page < 1 || page > this.totalPages) return;
+    this.loadFeed(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  goToFirstPage(): void {
+    this.goToPage(1);
+  }
+
+  goToPreviousPage(): void {
+    this.goToPage(this.currentPage - 1);
+  }
+
+  goToNextPage(): void {
+    this.goToPage(this.currentPage + 1);
+  }
+
+  goToLastPage(): void {
+    this.goToPage(this.totalPages);
+  }
+
+  getPageNumbers(): number[] {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    let start = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(this.totalPages, start + maxVisible - 1);
+    
+    if (end - start < maxVisible - 1) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
   }
 
   createPost(): void {
@@ -502,25 +550,83 @@ export class FeedComponent implements OnInit, OnDestroy {
   toggleComments(feed: FeedItem): void {
     feed.showComments = !feed.showComments;
     if (feed.showComments && (!feed.comments || feed.comments.length === 0)) {
-      this.loadComments(feed);
+      this.loadComments(feed, 1);
     }
   }
 
-  loadComments(feed: FeedItem): void {
-    this.http.get<FeedItem[]>(`${environment.apiUrl}/feed/getcomments/${feed.id}`)
-      .subscribe({
-        next: (comments) => {
-          const currentUserId = this.authService.getUserId();
-          feed.comments = comments.map(comment => this.processComment(comment, currentUserId));
-          // Show comments section if there are any comments
-          if (feed.comments.length > 0) {
-            feed.showComments = true;
-          }
-        },
-        error: (error) => {
-          console.error('Failed to load comments', error);
-        }
-      });
+  loadComments(feed: FeedItem, page: number = 1): void {
+    if (feed.commentsLoading) return;
+    
+    feed.commentsLoading = true;
+    feed.commentsPage = page;
+    const pageSize = 5;
+
+    this.http.get<{ comments: FeedItem[], totalCount: number }>(
+      `${environment.apiUrl}/feed/getcommentspaginated/${feed.id}?page=${page}&pageSize=${pageSize}`
+    ).subscribe({
+      next: (response) => {
+        const currentUserId = this.authService.getUserId();
+        feed.comments = response.comments.map(comment => this.processComment(comment, currentUserId));
+        feed.commentsTotalCount = response.totalCount;
+        feed.commentsTotalPages = Math.ceil(response.totalCount / pageSize);
+        feed.showComments = true;
+        feed.commentsLoading = false;
+        feed.hasMoreComments = feed.commentsTotalPages > page;
+      },
+      error: (error) => {
+        console.error('Failed to load comments', error);
+        feed.commentsLoading = false;
+      }
+    });
+  }
+
+  goToCommentPage(feed: FeedItem, page: number): void {
+    if (page < 1 || (feed.commentsTotalPages && page > feed.commentsTotalPages)) {
+      return;
+    }
+    this.loadComments(feed, page);
+  }
+
+  goToFirstCommentPage(feed: FeedItem): void {
+    this.loadComments(feed, 1);
+  }
+
+  goToPreviousCommentPage(feed: FeedItem): void {
+    if (feed.commentsPage && feed.commentsPage > 1) {
+      this.loadComments(feed, feed.commentsPage - 1);
+    }
+  }
+
+  goToNextCommentPage(feed: FeedItem): void {
+    if (feed.commentsPage && feed.commentsTotalPages && feed.commentsPage < feed.commentsTotalPages) {
+      this.loadComments(feed, feed.commentsPage + 1);
+    }
+  }
+
+  goToLastCommentPage(feed: FeedItem): void {
+    if (feed.commentsTotalPages) {
+      this.loadComments(feed, feed.commentsTotalPages);
+    }
+  }
+
+  getCommentPageNumbers(feed: FeedItem): number[] {
+    if (!feed.commentsTotalPages) return [];
+    const pages: number[] = [];
+    const currentPage = feed.commentsPage || 1;
+    const totalPages = feed.commentsTotalPages;
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, currentPage + 2);
+    if (endPage - startPage < 4) {
+      if (startPage === 1) {
+        endPage = Math.min(totalPages, startPage + 4);
+      } else if (endPage === totalPages) {
+        startPage = Math.max(1, endPage - 4);
+      }
+    }
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
   }
 
   private processComment(comment: FeedItem, currentUserId: number | null): FeedItem {
@@ -564,6 +670,6 @@ export class FeedComponent implements OnInit, OnDestroy {
   }
 
   getCommentsCount(feed: FeedItem): number {
-    return feed.comments?.length || 0;
+    return feed.commentsCount || 0;
   }
 }

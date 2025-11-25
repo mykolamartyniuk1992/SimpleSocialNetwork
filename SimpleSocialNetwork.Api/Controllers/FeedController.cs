@@ -34,10 +34,26 @@ namespace SimpleSocialNetwork.Controllers
         public ActionResult<IEnumerable<DtoFeed>> GetFeed()
             => Ok(_feeds.GetFeed());
 
+        [HttpGet("getfeedpaginated")]
+        [ServiceFilter(typeof(IsAuthenticatedAttribute))]
+        public async Task<ActionResult> GetFeedPaginated([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
+        {
+            var (feeds, totalCount) = await _feeds.GetFeedPaginatedAsync(page, pageSize);
+            return Ok(new { feeds, totalCount, page, pageSize });
+        }
+
         [HttpGet("getcomments/{feedId}")]
         [ServiceFilter(typeof(IsAuthenticatedAttribute))]
         public ActionResult<IEnumerable<DtoFeed>> GetComments(int feedId)
             => Ok(_feeds.GetComments(feedId));
+
+        [HttpGet("getcommentspaginated/{feedId}")]
+        [ServiceFilter(typeof(IsAuthenticatedAttribute))]
+        public async Task<ActionResult> GetCommentsPaginated(int feedId, [FromQuery] int page = 1, [FromQuery] int pageSize = 5)
+        {
+            var (comments, totalCount) = await _feeds.GetCommentsPaginatedAsync(feedId, page, pageSize);
+            return Ok(new { comments, totalCount, page, pageSize });
+        }
 
         [HttpPost("addfeed")]
         [ServiceFilter(typeof(IsAuthenticatedAttribute))]

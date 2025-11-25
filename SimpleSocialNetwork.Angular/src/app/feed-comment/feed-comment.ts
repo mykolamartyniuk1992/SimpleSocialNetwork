@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../services/auth.service';
 
@@ -31,6 +32,12 @@ interface FeedItem {
   showComments?: boolean;
   showCommentForm?: boolean;
   commentText?: string;
+  commentsCount?: number;
+  commentsPage?: number;
+  commentsLoading?: boolean;
+  hasMoreComments?: boolean;
+  commentsTotalCount?: number;
+  commentsTotalPages?: number;
 }
 
 @Component({
@@ -42,7 +49,8 @@ interface FeedItem {
     MatButtonModule,
     MatIconModule,
     MatFormFieldModule,
-    MatInputModule
+    MatInputModule,
+    MatTooltipModule
   ],
   templateUrl: './feed-comment.html',
   styleUrl: './feed-comment.css',
@@ -129,21 +137,34 @@ export class FeedCommentComponent implements OnInit, OnDestroy {
   toggleComments(feed: FeedItem): void {
     feed.showComments = !feed.showComments;
     if (feed.showComments && (!feed.comments || feed.comments.length === 0)) {
-      this.loadComments(feed);
+      this.loadComments(feed, 1);
     }
   }
 
-  loadComments(feed: FeedItem): void {
-    this.http.get<FeedItem[]>(`${environment.apiUrl}/feed/getcomments/${feed.id}`)
-      .subscribe({
-        next: (comments) => {
-          const currentUserId = this.authService.getUserId();
-          feed.comments = comments.map(comment => this.processComment(comment, currentUserId));
-        },
-        error: (error) => {
-          console.error('Failed to load comments', error);
-        }
-      });
+  loadComments(feed: FeedItem, page: number = 1): void {
+    if (feed.commentsLoading) return;
+    
+    feed.commentsLoading = true;
+    feed.commentsPage = page;
+    const pageSize = 5;
+
+    this.http.get<{ comments: FeedItem[], totalCount: number }>(
+      `${environment.apiUrl}/feed/getcommentspaginated/${feed.id}?page=${page}&pageSize=${pageSize}`
+    ).subscribe({
+      next: (response) => {
+        const currentUserId = this.authService.getUserId();
+        feed.comments = response.comments.map(comment => this.processComment(comment, currentUserId));
+        feed.commentsTotalCount = response.totalCount;
+        feed.commentsTotalPages = Math.ceil(response.totalCount / pageSize);
+        feed.showComments = true;
+        feed.commentsLoading = false;
+        feed.hasMoreComments = feed.commentsTotalPages > page;
+      },
+      error: (error) => {
+        console.error('Failed to load comments', error);
+        feed.commentsLoading = false;
+      }
+    });
   }
 
   private processComment(comment: FeedItem, currentUserId: number | null): FeedItem {
@@ -180,7 +201,7 @@ export class FeedCommentComponent implements OnInit, OnDestroy {
           if (response.messagesLeft !== undefined) {
             this.authService.updateMessagesLeft(response.messagesLeft);
           }
-          this.loadComments(feed);
+          this.loadComments(feed, 1);
         },
         error: (error) => {
           console.error('Failed to add comment', error);
@@ -192,8 +213,57 @@ export class FeedCommentComponent implements OnInit, OnDestroy {
       });
   }
 
+  goToCommentPage(feed: FeedItem, page: number): void {
+    if (page < 1 || (feed.commentsTotalPages && page > feed.commentsTotalPages)) {
+      return;
+    }
+    this.loadComments(feed, page);
+  }
+
+  goToFirstCommentPage(feed: FeedItem): void {
+    this.loadComments(feed, 1);
+  }
+
+  goToPreviousCommentPage(feed: FeedItem): void {
+    if (feed.commentsPage && feed.commentsPage > 1) {
+      this.loadComments(feed, feed.commentsPage - 1);
+    }
+  }
+
+  goToNextCommentPage(feed: FeedItem): void {
+    if (feed.commentsPage && feed.commentsTotalPages && feed.commentsPage < feed.commentsTotalPages) {
+      this.loadComments(feed, feed.commentsPage + 1);
+    }
+  }
+
+  goToLastCommentPage(feed: FeedItem): void {
+    if (feed.commentsTotalPages) {
+      this.loadComments(feed, feed.commentsTotalPages);
+    }
+  }
+
+  getCommentPageNumbers(feed: FeedItem): number[] {
+    if (!feed.commentsTotalPages) return [];
+    const pages: number[] = [];
+    const currentPage = feed.commentsPage || 1;
+    const totalPages = feed.commentsTotalPages;
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, currentPage + 2);
+    if (endPage - startPage < 4) {
+      if (startPage === 1) {
+        endPage = Math.min(totalPages, startPage + 4);
+      } else if (endPage === totalPages) {
+        startPage = Math.max(1, endPage - 4);
+      }
+    }
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
   getCommentsCount(feed: FeedItem): number {
-    return feed.comments?.length || 0;
+    return feed.commentsTotalCount || feed.comments?.length || 0;
   }
 
   deleteComment(feed: FeedItem): void {

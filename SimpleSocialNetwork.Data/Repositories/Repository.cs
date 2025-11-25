@@ -29,9 +29,47 @@ namespace SimpleSocialNetwork.Data.Repositories
             await context.SaveChangesAsync(ct);
         }
 
+        public virtual async Task UpdateRangeAsync(IEnumerable<T> models, CancellationToken ct = default)
+        {
+            try
+            {
+                var modelsList = models.ToList();
+                Console.WriteLine($"[UpdateRangeAsync] Updating {modelsList.Count} entities");
+                
+                Set.UpdateRange(modelsList);
+                Console.WriteLine($"[UpdateRangeAsync] UpdateRange called, now saving changes");
+                
+                await context.SaveChangesAsync(ct);
+                Console.WriteLine($"[UpdateRangeAsync] SaveChanges completed successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[UpdateRangeAsync] ERROR: {ex.Message}");
+                Console.WriteLine($"[UpdateRangeAsync] Stack Trace: {ex.StackTrace}");
+                Console.WriteLine($"[UpdateRangeAsync] Inner Exception: {ex.InnerException?.Message}");
+                Console.WriteLine($"[UpdateRangeAsync] Inner Stack Trace: {ex.InnerException?.StackTrace}");
+                throw;
+            }
+        }
+
         public virtual async Task DeleteAsync(T model, CancellationToken ct = default)
         {
-            Set.Remove(model);
+            // Find if there's already a tracked entity with the same key
+            var existingEntry = context.ChangeTracker.Entries<T>()
+                .FirstOrDefault(e => e.Entity.Id == model.Id);
+            
+            if (existingEntry != null)
+            {
+                // Use the already tracked entity
+                Set.Remove(existingEntry.Entity);
+            }
+            else
+            {
+                // Entity is not tracked, attach and remove it
+                Set.Attach(model);
+                Set.Remove(model);
+            }
+            
             await context.SaveChangesAsync(ct);
         }
 

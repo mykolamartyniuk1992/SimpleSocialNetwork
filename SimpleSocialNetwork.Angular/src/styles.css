@@ -1,4 +1,5 @@
 /* You can add global styles to this file, and also import other style files */
+@import '@angular/material/prebuilt-themes/indigo-pink.css';
 @import '@angular/material/prebuilt-themes/azure-blue.css';
 
 html, body {
@@ -11,4 +12,82 @@ html, body {
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
+}
+
+/* Development theme - Indigo */
+.theme-indigo {
+  --primary-color: #3f51b5;
+  --accent-color: #ff4081;
+  --dev-badge-bg: #ff6f00;
+  position: relative;
+}
+
+.theme-indigo::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 100px,
+    rgba(255, 111, 0, 0.03) 100px,
+    rgba(255, 111, 0, 0.03) 200px
+  );
+  background-size: 200px 200px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.theme-indigo::after {
+  content: 'DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV DEV';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  color: rgba(255, 111, 0, 0.06);
+  font-weight: bold;
+  font-size: 48px;
+  line-height: 2;
+  word-wrap: break-word;
+  pointer-events: none;
+  z-index: -1;
+  overflow: hidden;
+  white-space: normal;
+  transform: rotate(-25deg);
+  letter-spacing: 20px;
+}
+
+/* Production theme - Azure Blue */
+.theme-azure-blue {
+  --primary-color: #0078d4;
+  --accent-color: #107c10;
+}
+
+/* Error snackbar styling */
+.error-snackbar {
+  background-color: #f44336 !important;
+  color: white !important;
+  max-width: 800px !important;
+  width: auto !important;
+}
+
+.error-snackbar .mat-mdc-button {
+  color: white !important;
+}
+
+.error-snackbar .mdc-snackbar__surface {
+  max-width: 800px !important;
+}
+
+.error-snackbar .mat-mdc-snack-bar-label {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  font-family: 'Courier New', monospace !important;
+  font-size: 12px !important;
+  max-height: 400px !important;
+  overflow-y: auto !important;
 }

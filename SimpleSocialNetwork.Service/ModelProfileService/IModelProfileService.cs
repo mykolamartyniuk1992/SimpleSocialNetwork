@@ -9,12 +9,62 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
 {
     public interface IModelProfileService
     {
-        Guid Login(string name, string password);
+        Task<(int Id, string Token, bool IsAdmin, string Name, string PhotoPath, bool Verified, int? MessagesLeft)?> LoginAsync(string email, string password);
 
         bool IsRegistered(string name, string password);
 
-        Task RegisterAsync(DtoProfile newProfile);
+        Task<(int Id, string Token, bool IsAdmin, string Name, string PhotoPath, bool Verified, int? MessagesLeft)> RegisterAsync(DtoProfile newProfile);
 
         bool IsAuthenticated(string name, string token);
+
+        int? GetUserIdByToken(string token);
+
+        bool GetIsAdminByToken(string token);
+
+        Task<(string Email, string Password)?> GetAdminCredentialsAsync();
+
+        Task UpdatePhotoPathAsync(int profileId, string photoPath);
+
+        Task<string> GetPhotoPathAsync(int profileId);
+
+        Task UpdateProfileNameAsync(int profileId, string name);
+
+        Task<bool> ChangePasswordAsync(int profileId, string oldPassword, string newPassword);
+
+        Task<string> UpdateProfileAsync(int profileId, string name = null, string photoPath = null);
+
+        Task SetVerifiedAsync(int profileId, bool verified);
+
+        Task<string> SetVerifiedAndClearTokenAsync(int profileId, bool verified);
+
+        Task<int?> GetMessagesLeftAsync(int profileId);
+
+        Task<(bool canPost, int? messagesLeft)> DecrementMessagesLeftAsync(int profileId);
+
+        Task SetMessagesLeftAsync(int profileId, int? messagesLeft);
+
+        Task UpdateAllUnverifiedMessagesLeftAsync(int messageLimit);
+
+        Task UpdateUserMessageLimitAsync(int profileId, int messageLimit);
+
+        Task<List<UserDto>> GetAllUsersAsync();
+
+        Task<string> ClearUserTokenAsync(int profileId);
+
+        Task<string> GetUserTokenAsync(int profileId);
+
+        Task DeleteUserAsync(int profileId);
+    }
+
+    public class UserDto
+    {
+        public int Id { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string PhotoPath { get; set; }
+        public bool IsSystemUser { get; set; }
+        public bool IsAdmin { get; set; }
+        public bool Verified { get; set; }
+        public int? MessagesLeft { get; set; }
     }
 }

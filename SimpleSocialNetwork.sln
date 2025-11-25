@@ -4,7 +4,7 @@ VisualStudioVersion = 17.14.36518.9 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleSocialNetwork.Models", "SimpleSocialNetwork.Models\SimpleSocialNetwork.Models.csproj", "{7ECC895D-95E3-4037-9176-71982935386C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleSocialNetwork.Web", "SimpleSocialNetwork.Web\SimpleSocialNetwork.Web.csproj", "{07266E00-5D93-4255-A4D3-28929561167C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleSocialNetwork.Api", "SimpleSocialNetwork.Api\SimpleSocialNetwork.Api.csproj", "{07266E00-5D93-4255-A4D3-28929561167C}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleSocialNetwork.Data", "SimpleSocialNetwork.Data\SimpleSocialNetwork.Data.csproj", "{20FCE755-A245-4CD2-97AF-F7C4B1C15FDA}"
 EndProject

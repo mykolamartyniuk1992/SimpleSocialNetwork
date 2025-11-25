@@ -11,11 +11,15 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
     {
         IEnumerable<DtoFeed> GetFeed();
 
-        int AddFeed(DtoFeed dtoFeed);
+        IEnumerable<DtoFeed> GetAllFeeds();
+
+        IEnumerable<DtoFeed> GetComments(int feedId);
+
+        int AddFeed(DtoFeed dtoFeed, int? userId = null);
 
         void DeleteFeed(int feedId);
 
-        int Like(DtoLike like);
+        int Like(DtoLike like, int? userId = null);
 
         DtoLike Dislike(int likeId);
     }

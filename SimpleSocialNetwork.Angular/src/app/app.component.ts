@@ -1,6 +1,7 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { HeaderComponent } from './header/header.component';
+import { environment } from '../environments/environment';
 
 @Component({
   selector: 'app-root',
@@ -8,6 +9,9 @@ import { HeaderComponent } from './header/header.component';
   standalone: true,
   imports: [RouterOutlet, HeaderComponent]
 })
-export class AppComponent {
-  // protected readonly title = signal('SimpleSocialNetwork.Angular');
+export class AppComponent implements OnInit {
+  ngOnInit() {
+    // Apply theme based on environment
+    document.body.classList.add(`theme-${environment.theme}`);
+  }
 }

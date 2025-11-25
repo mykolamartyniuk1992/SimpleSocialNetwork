@@ -25,8 +25,11 @@
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Password</mat-label>
-          <input matInput type="password" formControlName="password" placeholder="Enter your password" />
+          <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" placeholder="Enter your password" />
           <mat-icon matPrefix>lock</mat-icon>
+          <button mat-icon-button matSuffix type="button" (click)="hidePassword = !hidePassword" [attr.aria-label]="'Toggle password visibility'">
+            <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
+          </button>
           @if (registerForm.get('password')?.invalid && registerForm.get('password')?.touched) {
             <mat-error>
               @if (registerForm.get('password')?.hasError('required')) {
@@ -42,10 +45,17 @@
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Confirm Password</mat-label>
-          <input matInput type="password" formControlName="confirmPassword" placeholder="Confirm your password" />
+          <input matInput [type]="hideConfirmPassword ? 'password' : 'text'" formControlName="confirmPassword" placeholder="Confirm your password" />
           <mat-icon matPrefix>lock</mat-icon>
-          @if (registerForm.get('confirmPassword')?.invalid && registerForm.get('confirmPassword')?.touched) {
-            <mat-error>Passwords do not match</mat-error>
+          <button mat-icon-button matSuffix type="button" (click)="hideConfirmPassword = !hideConfirmPassword" [attr.aria-label]="'Toggle password visibility'">
+            <mat-icon>{{hideConfirmPassword ? 'visibility_off' : 'visibility'}}</mat-icon>
+          </button>
+          @if (registerForm.get('confirmPassword')?.dirty && registerForm.get('confirmPassword')?.touched) {
+            @if (registerForm.get('confirmPassword')?.hasError('required')) {
+              <mat-error>Confirm password is required</mat-error>
+            } @else if (registerForm.get('confirmPassword')?.hasError('passwordMismatch')) {
+              <mat-error>Passwords do not match</mat-error>
+            }
           }
         </mat-form-field>
 

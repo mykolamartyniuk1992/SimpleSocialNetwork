@@ -1,0 +1,65 @@
+<mat-card class="comment-item">
+  <mat-card-header>
+    <div mat-card-avatar class="comment-avatar">
+      @if (comment.profilePhotoPath) {
+        <img [src]="getFullPhotoUrl(comment.profilePhotoPath)" alt="Profile" class="avatar-photo">
+      } @else {
+        <mat-icon>account_circle</mat-icon>
+      }
+    </div>
+    <mat-card-title>{{ comment.name }}</mat-card-title>
+    <mat-card-subtitle>{{ comment.date }}</mat-card-subtitle>
+  </mat-card-header>
+  <mat-card-content>
+    <p>{{ comment.text }}</p>
+  </mat-card-content>
+  <mat-card-actions>
+    <button mat-button (click)="toggleLike(comment)" [disabled]="liking[comment.id]" [color]="comment.isLiked ? 'primary' : ''">
+      <mat-icon>{{ comment.isLiked ? 'thumb_up' : 'thumb_up_off_alt' }}</mat-icon>
+      <span>{{ getLikesCount(comment) }}</span>
+    </button>
+    @if (getCommentsCount(comment) > 0) {
+      <button mat-button (click)="toggleComments(comment)">
+        <mat-icon>{{ comment.showComments ? 'expand_less' : 'expand_more' }}</mat-icon>
+        <span>{{ comment.showComments ? 'Hide' : 'Show' }} Comments ({{ getCommentsCount(comment) }})</span>
+      </button>
+    }
+    <button mat-button (click)="toggleCommentForm(comment)">
+      <mat-icon>add_comment</mat-icon>
+      <span>Reply</span>
+    </button>
+    @if (canDeleteComment(comment)) {
+      <button mat-button (click)="deleteComment(comment)" color="warn">
+        <mat-icon>delete</mat-icon>
+        <span>Delete</span>
+      </button>
+    }
+  </mat-card-actions>
+
+  @if (comment.showCommentForm) {
+    <mat-card-content class="comment-form">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Write a reply...</mat-label>
+        <textarea matInput [(ngModel)]="comment.commentText" rows="2" maxlength="500" [disabled]="isPostingDisabled"></textarea>
+        @if (isPostingDisabled) {
+          <mat-error>You have reached your message limit. Cannot post more replies.</mat-error>
+        }
+      </mat-form-field>
+      <div class="comment-actions">
+        <button mat-button (click)="toggleCommentForm(comment)">Cancel</button>
+        <button mat-raised-button color="primary" (click)="submitComment(comment)" [disabled]="!comment.commentText || comment.commentText.trim() === '' || isPostingDisabled">
+          <mat-icon>send</mat-icon>
+          Post Reply
+        </button>
+      </div>
+    </mat-card-content>
+  }
+
+  @if (comment.showComments && comment.comments && comment.comments.length > 0) {
+    <mat-card-content class="nested-comments">
+      @for (nestedComment of comment.comments; track nestedComment.id) {
+        <app-feed-comment [comment]="nestedComment"></app-feed-comment>
+      }
+    </mat-card-content>
+  }
+</mat-card>

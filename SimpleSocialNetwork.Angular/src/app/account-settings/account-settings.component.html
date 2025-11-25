@@ -1,0 +1,143 @@
+<div class="settings-container">
+  <h2>Account Settings</h2>
+
+  <mat-card class="settings-card">
+    <mat-card-header>
+      <mat-card-title>
+        Profile Information
+        @if (!isVerified) {
+          <span class="unverified-badge">Account Unverified</span>
+        }
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      @if (!isVerified && messagesLeft !== null) {
+        <div class="message-limit-info">
+          <mat-icon>info</mat-icon>
+          <p>You have <strong>{{ messagesLeft }}</strong> messages left. Verify your account for unlimited messages.</p>
+        </div>
+      }
+      <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+        <div class="photo-section">
+          @if (photoPreview) {
+            <img [src]="photoPreview" alt="Profile" class="photo-preview">
+          } @else {
+            <mat-icon class="photo-placeholder">account_circle</mat-icon>
+          }
+          <input type="file" #fileInput hidden (change)="onFileSelected($event)" accept="image/*">
+          <button mat-raised-button type="button" (click)="fileInput.click()">
+            <mat-icon>upload</mat-icon>
+            Change Photo
+          </button>
+        </div>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Name</mat-label>
+          <input matInput formControlName="name" placeholder="Enter your name">
+          @if (profileForm.get('name')?.hasError('required') && profileForm.get('name')?.touched) {
+            <mat-error>Name is required</mat-error>
+          }
+          @if (profileForm.get('name')?.hasError('minlength')) {
+            <mat-error>Name must be at least 2 characters</mat-error>
+          }
+        </mat-form-field>
+
+        <div class="button-row">
+          <button mat-raised-button color="primary" type="submit" [disabled]="profileForm.invalid || saving">
+            @if (saving) {
+              <mat-spinner diameter="20"></mat-spinner>
+            } @else {
+              <mat-icon>save</mat-icon>
+            }
+            {{ saving ? 'Saving...' : 'Save Profile' }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="settings-card">
+    <mat-card-header>
+      <mat-card-title>Change Password</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <form [formGroup]="passwordForm" (ngSubmit)="changePassword()">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Current Password</mat-label>
+          <input matInput [type]="hideOldPassword ? 'password' : 'text'" formControlName="oldPassword">
+          <button mat-icon-button matSuffix type="button" (click)="hideOldPassword = !hideOldPassword">
+            <mat-icon>{{ hideOldPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+          @if (passwordForm.get('oldPassword')?.hasError('required') && passwordForm.get('oldPassword')?.touched) {
+            <mat-error>Current password is required</mat-error>
+          }
+          @if (passwordForm.get('oldPassword')?.hasError('minlength')) {
+            <mat-error>Password must be at least 8 characters</mat-error>
+          }
+          @if (passwordForm.get('oldPassword')?.hasError('pattern')) {
+            <mat-error>Password must contain uppercase, digit, and special character</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>New Password</mat-label>
+          <input matInput [type]="hideNewPassword ? 'password' : 'text'" formControlName="newPassword">
+          <button mat-icon-button matSuffix type="button" (click)="hideNewPassword = !hideNewPassword">
+            <mat-icon>{{ hideNewPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+          @if (passwordForm.get('newPassword')?.hasError('required') && passwordForm.get('newPassword')?.touched) {
+            <mat-error>New password is required</mat-error>
+          }
+          @if (passwordForm.get('newPassword')?.hasError('minlength')) {
+            <mat-error>Password must be at least 8 characters</mat-error>
+          }
+          @if (passwordForm.get('newPassword')?.hasError('pattern')) {
+            <mat-error>Password must contain uppercase, digit, and special character</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Confirm New Password</mat-label>
+          <input matInput [type]="hideConfirmPassword ? 'password' : 'text'" formControlName="confirmPassword">
+          <button mat-icon-button matSuffix type="button" (click)="hideConfirmPassword = !hideConfirmPassword">
+            <mat-icon>{{ hideConfirmPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+          @if (passwordForm.get('confirmPassword')?.hasError('passwordMismatch') && passwordForm.get('confirmPassword')?.touched) {
+            <mat-error>Passwords do not match</mat-error>
+          }
+        </mat-form-field>
+
+        <div class="button-row">
+          <button mat-raised-button color="accent" type="submit" [disabled]="passwordForm.invalid || changingPassword">
+            @if (changingPassword) {
+              <mat-spinner diameter="20"></mat-spinner>
+            } @else {
+              <mat-icon>lock</mat-icon>
+            }
+            {{ changingPassword ? 'Changing...' : 'Change Password' }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="settings-card danger-zone">
+    <mat-card-header>
+      <mat-card-title>Danger Zone</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p class="danger-warning">
+        <mat-icon>warning</mat-icon>
+        Deleting your account is permanent and cannot be undone. All your posts, comments, and likes will be permanently deleted.
+      </p>
+      <button mat-raised-button color="warn" (click)="deleteAccount()" [disabled]="deleting">
+        @if (deleting) {
+          <mat-spinner diameter="20"></mat-spinner>
+        } @else {
+          <mat-icon>delete_forever</mat-icon>
+        }
+        {{ deleting ? 'Deleting...' : 'Delete My Account' }}
+      </button>
+    </mat-card-content>
+  </mat-card>
+</div>

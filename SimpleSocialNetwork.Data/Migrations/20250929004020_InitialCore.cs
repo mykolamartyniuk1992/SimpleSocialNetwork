@@ -17,9 +17,15 @@ namespace SimpleSocialNetwork.Data.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
+                    Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
                     Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     Password = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
                     Token = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    Verified = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    IsAdmin = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    IsSystemUser = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    MessagesLeft = table.Column<int>(type: "int", nullable: true),
+                    PhotoPath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     DateAdd = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
                 },
                 constraints: table =>
@@ -96,6 +102,54 @@ namespace SimpleSocialNetwork.Data.Migrations
                 name: "IX_likes_profile_id",
                 table: "likes",
                 column: "profile_id");
+
+            // Unique constraint to prevent duplicate likes from same user on same feed
+            migrationBuilder.CreateIndex(
+                name: "IX_likes_feed_id_profile_id",
+                table: "likes",
+                columns: new[] { "feed_id", "profile_id" },
+                unique: true);
+
+            // Unique filtered index: only one admin allowed
+            migrationBuilder.CreateIndex(
+                name: "IX_profiles_IsAdmin",
+                table: "profiles",
+                column: "IsAdmin",
+                unique: true,
+                filter: "[IsAdmin] = 1");
+
+            // Create admin user with generated password
+            var adminPassword = Guid.NewGuid().ToString("N").Substring(0, 12); // Generate 12-char password
+            var adminEmail = "admin@simplesocialnetwork.local";
+            
+            migrationBuilder.Sql($@"
+                INSERT INTO profiles (Email, Name, Password, Token, Verified, IsAdmin, IsSystemUser, MessagesLeft, DateAdd)
+                VALUES ('{adminEmail}', 'Administrator', '{adminPassword}', NULL, 1, 1, 1, NULL, SYSUTCDATETIME())
+            ");
+
+            // Create test unverified user
+            var testEmail = "testuser@simplesocialnetwork.local";
+            var testPassword = "Test123!";
+            
+            migrationBuilder.Sql($@"
+                INSERT INTO profiles (Email, Name, Password, Token, Verified, IsAdmin, IsSystemUser, MessagesLeft, DateAdd)
+                VALUES ('{testEmail}', 'TestUser', '{testPassword}', NULL, 0, 0, 1, 100, SYSUTCDATETIME())
+            ");
+
+            // Output passwords to console (will be visible during migration)
+            Console.WriteLine("============================================");
+            Console.WriteLine("ADMIN USER CREATED");
+            Console.WriteLine($"Email: {adminEmail}");
+            Console.WriteLine($"Password: {adminPassword}");
+            Console.WriteLine("SAVE THIS PASSWORD - IT WON'T BE SHOWN AGAIN!");
+            Console.WriteLine("============================================");
+            Console.WriteLine();
+            Console.WriteLine("============================================");
+            Console.WriteLine("TEST UNVERIFIED USER CREATED");
+            Console.WriteLine($"Email: {testEmail}");
+            Console.WriteLine($"Password: {testPassword}");
+            Console.WriteLine($"Messages Left: 100");
+            Console.WriteLine("============================================");
         }
 
         /// <inheritdoc />

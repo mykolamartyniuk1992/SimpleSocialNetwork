@@ -30,7 +30,8 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
         {
             var dtoFeed = new List<DtoFeed>();
 
-            var feed = feedRepo.GetAllAsync().Result;
+            // Only get top-level posts (no parent)
+            var feed = feedRepo.WhereAsync(f => f.ParentId == null).Result;
             foreach (var f in feed)
             {
                 var dtoLikes = new List<DtoLike>();
@@ -44,6 +45,7 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
                         {
                             id = l.Id,
                             feedId = l.FeedId,
+                            profileId = l.ProfileId,
                             profileName = profile.Name
                         };
                         dtoLikes.Add(dtoLike);
@@ -59,7 +61,9 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
                         date = f.DateAdd.ToString(),
                         id = f.Id,
                         parentId = f.ParentId,
-                        likes = dtoLikes
+                        profileId = f.ProfileId,
+                        likes = dtoLikes,
+                        profilePhotoPath = modelProfile.PhotoPath
                     });
                 }
                 
@@ -68,19 +72,123 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
             return dtoFeed;
         }
 
-        public int AddFeed(DtoFeed dtoFeed)
+        public IEnumerable<DtoFeed> GetAllFeeds()
+        {
+            var dtoFeed = new List<DtoFeed>();
+
+            // Get ALL feeds including comments (no parent filter)
+            var feed = feedRepo.GetAllAsync().Result;
+            foreach (var f in feed)
+            {
+                var dtoLikes = new List<DtoLike>();
+                var likes = likeRepo.WhereAsync(l => l.FeedId == f.Id).Result;
+                if (likes.Any())
+                {
+                    foreach (var l in likes)
+                    {
+                        var profile = profileRepo.FirstOrDefaultAsync(p => p.Id == l.ProfileId).Result;
+                        var dtoLike = new DtoLike()
+                        {
+                            id = l.Id,
+                            feedId = l.FeedId,
+                            profileId = l.ProfileId,
+                            profileName = profile.Name
+                        };
+                        dtoLikes.Add(dtoLike);
+                    }
+                }
+                ModelProfile modelProfile = profileRepo.FirstOrDefaultAsync(p => p.Id == f.ProfileId).Result;
+                if (modelProfile != null)
+                {
+                    dtoFeed.Add(new DtoFeed()
+                    {
+                        name = modelProfile.Name,
+                        text = f.Text,
+                        date = f.DateAdd.ToString(),
+                        id = f.Id,
+                        parentId = f.ParentId,
+                        profileId = f.ProfileId,
+                        likes = dtoLikes,
+                        profilePhotoPath = modelProfile.PhotoPath
+                    });
+                }
+            }
+
+            return dtoFeed;
+        }
+
+        public IEnumerable<DtoFeed> GetComments(int feedId)
+        {
+            var dtoComments = new List<DtoFeed>();
+
+            // Get comments for this feed
+            var comments = feedRepo.WhereAsync(f => f.ParentId == feedId).Result;
+            foreach (var c in comments)
+            {
+                var dtoLikes = new List<DtoLike>();
+                var likes = likeRepo.WhereAsync(l => l.FeedId == c.Id).Result;
+                if (likes.Any())
+                {
+                    foreach (var l in likes)
+                    {
+                        var profile = profileRepo.FirstOrDefaultAsync(p => p.Id == l.ProfileId).Result;
+                        var dtoLike = new DtoLike()
+                        {
+                            id = l.Id,
+                            feedId = l.FeedId,
+                            profileId = l.ProfileId,
+                            profileName = profile.Name
+                        };
+                        dtoLikes.Add(dtoLike);
+                    }
+                }
+                ModelProfile modelProfile = profileRepo.FirstOrDefaultAsync(p => p.Id == c.ProfileId).Result;
+                if (modelProfile != null)
+                {
+                    // Recursively get nested comments
+                    var nestedComments = GetComments(c.Id).ToList();
+                    
+                    dtoComments.Add(new DtoFeed()
+                    {
+                        name = modelProfile.Name,
+                        text = c.Text,
+                        date = c.DateAdd.ToString(),
+                        id = c.Id,
+                        parentId = c.ParentId,
+                        profileId = c.ProfileId,
+                        likes = dtoLikes,
+                        profilePhotoPath = modelProfile.PhotoPath,
+                        comments = nestedComments
+                    });
+                }
+            }
+
+            return dtoComments;
+        }
+
+        public int AddFeed(DtoFeed dtoFeed, int? userId = null)
         {
             ModelFeed modelFeed;
             int modelProfileId = 0;
-            ModelProfile modelProfile = profileRepo.FirstOrDefaultAsync(p => p.Name == dtoFeed.name && p.Token == dtoFeed.token)
-                .Result;
-            if (modelProfile != null)
+            
+            if (userId.HasValue && userId.Value > 0)
             {
-                modelProfileId = modelProfile.Id;
+                // Use provided userId
+                modelProfileId = userId.Value;
             }
             else
             {
-                throw new Exception("Profile not found");
+                // Fallback to name/token lookup
+                ModelProfile modelProfile = profileRepo.FirstOrDefaultAsync(p => p.Name == dtoFeed.name && p.Token == dtoFeed.token)
+                    .Result;
+                if (modelProfile != null)
+                {
+                    modelProfileId = modelProfile.Id;
+                }
+                else
+                {
+                    throw new Exception("Profile not found");
+                }
             }
             modelFeed = new ModelFeed()
             {
@@ -99,18 +207,37 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
             (feedRepo as ModelFeedRepository).RecoursiveDelete(feedId);
         }
 
-        public int Like(DtoLike like)
+        public int Like(DtoLike like, int? userId = null)
         {
             int profileId = 0;
-            var profile = profileRepo.FirstOrDefaultAsync(profile => profile.Name == like.profileName && profile.Token == like.token).Result;
-            if (profile != null)
+            
+            if (userId.HasValue && userId.Value > 0)
             {
-                profileId = profile.Id;
-            } 
+                // Use provided userId
+                profileId = userId.Value;
+            }
             else
             {
-                throw new Exception("Profile not found");
+                // Fallback to name/token lookup
+                var profile = profileRepo.FirstOrDefaultAsync(profile => profile.Name == like.profileName && profile.Token == like.token).Result;
+                if (profile != null)
+                {
+                    profileId = profile.Id;
+                } 
+                else
+                {
+                    throw new Exception("Profile not found");
+                }
             }
+            
+            // Check if user already liked this feed
+            var existingLike = likeRepo.FirstOrDefaultAsync(l => l.FeedId == like.feedId && l.ProfileId == profileId).Result;
+            if (existingLike != null)
+            {
+                // User already liked this feed, return existing like id
+                return existingLike.Id;
+            }
+            
             var modelLike = new ModelLike()
             {
                 FeedId = like.feedId,
@@ -126,7 +253,7 @@ namespace SimpleSocialNetwork.Service.ModelFeedService
             like.feedId = model.FeedId;
             var profile = profileRepo.FirstOrDefaultAsync(p => p.Id == model.ProfileId).Result;
             like.profileName = profile.Name;
-            likeRepo.DeleteAsync(model);
+            likeRepo.DeleteAsync(model).Wait();
             return like;
         }
     }

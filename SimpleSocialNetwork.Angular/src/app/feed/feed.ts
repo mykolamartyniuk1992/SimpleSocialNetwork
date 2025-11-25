@@ -136,13 +136,11 @@ export class FeedComponent implements OnInit, OnDestroy {
     this.hubConnection.on('NewFeedPost', (feedItem: FeedItem) => {
       this.ngZone.run(() => {
         console.log('New feed post received:', feedItem);
-        // Only add if it's truly a top-level post (no parentId)
+        // Only process if it's truly a top-level post (no parentId)
         if (!feedItem.parentId) {
-          // Add isLiked flag
-          const currentUserId = this.authService.getUserId();
-          feedItem.isLiked = feedItem.likes?.some(like => like.profileId === currentUserId) || false;
-          // Add new post to the beginning of the feed
-          this.feeds.unshift(feedItem);
+          // Reload current page to maintain pagination integrity
+          // This ensures the new post appears correctly based on sort order
+          this.loadFeed(this.currentPage);
         }
       });
     });
@@ -193,10 +191,11 @@ export class FeedComponent implements OnInit, OnDestroy {
     this.hubConnection.on('FeedDeleted', (feedId: number) => {
       this.ngZone.run(() => {
         console.log('Feed deleted:', feedId);
-        // Remove from top-level feeds
+        // Check if it's a top-level feed
         const index = this.feeds.findIndex(f => f.id === feedId);
         if (index !== -1) {
-          this.feeds.splice(index, 1);
+          // It's a top-level post, reload current page to maintain pagination
+          this.loadFeed(this.currentPage);
         } else {
           // Remove from nested comments
           this.removeNestedComment(this.feeds, feedId);

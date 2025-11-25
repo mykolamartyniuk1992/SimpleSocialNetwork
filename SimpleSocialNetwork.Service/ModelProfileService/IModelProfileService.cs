@@ -13,7 +13,7 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
 
         bool IsRegistered(string name, string password);
 
-        Task<(int Id, string Token, bool IsAdmin, string Name, string PhotoPath, bool Verified, int? MessagesLeft)> RegisterAsync(DtoProfile newProfile);
+        Task<(int Id, string Token, bool IsAdmin, string Name, string PhotoPath, bool Verified, int? MessagesLeft, string VerifyHash)> RegisterAsync(DtoProfile newProfile);
 
         bool IsAuthenticated(string name, string token);
 

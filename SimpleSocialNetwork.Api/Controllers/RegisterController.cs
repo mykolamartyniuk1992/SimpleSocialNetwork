@@ -1,15 +1,21 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using SimpleSocialNetwork.Dto;
 using SimpleSocialNetwork.Service.ModelProfileService;
+using SimpleSocialNetwork.Api.Services;
 
 [ApiController]
 [Route("api/[controller]/[action]")]
+
 public class RegisterController : ControllerBase
 {
     private readonly IModelProfileService _profileService;
+    private readonly EmailService _emailService;
 
-    public RegisterController(IModelProfileService profileService)
-        => _profileService = profileService;
+    public RegisterController(IModelProfileService profileService, EmailService emailService)
+    {
+        _profileService = profileService;
+        _emailService = emailService;
+    }
 
     [HttpPost]                      // POST /api/register
     public async Task<IActionResult> Register([FromBody] DtoProfile newProfile,
@@ -52,7 +58,14 @@ public class RegisterController : ControllerBase
             return BadRequest(new { message = "Password must contain at least one special character (@$!%*?&)" });
         }
 
-        var (profileId, token, isAdmin, name, photoPath, verified, messagesLeft) = await _profileService.RegisterAsync(newProfile);
+        var (profileId, token, isAdmin, name, photoPath, verified, messagesLeft, verifyHash) = await _profileService.RegisterAsync(newProfile);
+
+        // Сформировать ссылку для верификации
+        var request = HttpContext.Request;
+        var baseUrl = $"{request.Scheme}://{request.Host}";
+        var verifyLink = $"{baseUrl}/api/profile/verify/{newProfile.email}/{verifyHash}";
+        _emailService.SendVerificationEmail(newProfile.email, verifyLink);
+
         return Ok(new { id = profileId, token = token, isAdmin = isAdmin, name = name, photoUrl = photoPath, verified = verified, messagesLeft = messagesLeft });
     }
 }

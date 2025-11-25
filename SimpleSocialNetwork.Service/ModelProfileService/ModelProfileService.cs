@@ -61,7 +61,7 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
             return profileFounded != null;
         }
 
-        public async Task<(int Id, string Token, bool IsAdmin, string Name, string PhotoPath, bool Verified, int? MessagesLeft)> RegisterAsync(DtoProfile newProfile)
+        public async Task<(int Id, string Token, bool IsAdmin, string Name, string PhotoPath, bool Verified, int? MessagesLeft, string VerifyHash)> RegisterAsync(DtoProfile newProfile)
         {
             // Prevent creating another admin if one already exists
             if (newProfile.isAdmin)
@@ -76,6 +76,8 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
             var token = Guid.NewGuid().ToString();
             var defaultMessageLimit = int.TryParse(_configuration["AppSettings:DefaultMessageLimit"], out var limit) ? limit : 100;
             
+            // Генерируем уникальный verify_hash
+            var verifyHash = Guid.NewGuid().ToString("N");
             ModelProfile modelProfile = new ModelProfile()
             {
                 DateAdd = DateTime.Now,
@@ -85,10 +87,11 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
                 Token = token,
                 Verified = false,
                 IsAdmin = newProfile.isAdmin,
-                MessagesLeft = newProfile.isAdmin ? null : defaultMessageLimit // Admins unlimited, regular users get config value
+                MessagesLeft = newProfile.isAdmin ? null : defaultMessageLimit,
+                VerifyHash = verifyHash
             };
             await profileRepo.AddAsync(modelProfile);
-            return (modelProfile.Id, token, modelProfile.IsAdmin, modelProfile.Name, modelProfile.PhotoPath, modelProfile.Verified, modelProfile.MessagesLeft);
+            return (modelProfile.Id, token, modelProfile.IsAdmin, modelProfile.Name, modelProfile.PhotoPath, modelProfile.Verified, modelProfile.MessagesLeft, verifyHash);
         }
 
         public bool IsAuthenticated(string name, string token)

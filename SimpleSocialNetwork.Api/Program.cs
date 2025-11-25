@@ -1,3 +1,5 @@
+using SimpleSocialNetwork.Api.Services;
+builder.Services.AddScoped<EmailService>();
 using Microsoft.EntityFrameworkCore;
 using SimpleSocialNetwork;
 using SimpleSocialNetwork.Data;

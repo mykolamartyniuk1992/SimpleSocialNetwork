@@ -26,7 +26,8 @@ namespace SimpleSocialNetwork.Data.Migrations
                     IsSystemUser = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
                     MessagesLeft = table.Column<int>(type: "int", nullable: true),
                     PhotoPath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    DateAdd = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
+                    DateAdd = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
+                    VerifyHash = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -103,14 +104,6 @@ namespace SimpleSocialNetwork.Data.Migrations
                 table: "likes",
                 column: "profile_id");
 
-            // Unique constraint to prevent duplicate likes from same user on same feed
-            migrationBuilder.CreateIndex(
-                name: "IX_likes_feed_id_profile_id",
-                table: "likes",
-                columns: new[] { "feed_id", "profile_id" },
-                unique: true);
-
-            // Unique filtered index: only one admin allowed
             migrationBuilder.CreateIndex(
                 name: "IX_profiles_IsAdmin",
                 table: "profiles",
@@ -121,7 +114,7 @@ namespace SimpleSocialNetwork.Data.Migrations
             // Create admin user with generated password
             var adminPassword = Guid.NewGuid().ToString("N").Substring(0, 12); // Generate 12-char password
             var adminEmail = "admin@simplesocialnetwork.local";
-            
+
             migrationBuilder.Sql($@"
                 INSERT INTO profiles (Email, Name, Password, Token, Verified, IsAdmin, IsSystemUser, MessagesLeft, DateAdd)
                 VALUES ('{adminEmail}', 'Administrator', '{adminPassword}', NULL, 1, 1, 1, NULL, SYSUTCDATETIME())
@@ -130,7 +123,7 @@ namespace SimpleSocialNetwork.Data.Migrations
             // Create test unverified user
             var testEmail = "testuser@simplesocialnetwork.local";
             var testPassword = "Test123!";
-            
+
             migrationBuilder.Sql($@"
                 INSERT INTO profiles (Email, Name, Password, Token, Verified, IsAdmin, IsSystemUser, MessagesLeft, DateAdd)
                 VALUES ('{testEmail}', 'TestUser', '{testPassword}', NULL, 0, 0, 1, 100, SYSUTCDATETIME())

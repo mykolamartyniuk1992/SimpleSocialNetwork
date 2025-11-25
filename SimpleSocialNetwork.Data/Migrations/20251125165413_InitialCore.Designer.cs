@@ -12,7 +12,7 @@ using SimpleSocialNetwork.Data;
 namespace SimpleSocialNetwork.Data.Migrations
 {
     [DbContext(typeof(SimpleSocialNetworkDbContext))]
-    [Migration("20250929004020_InitialCore")]
+    [Migration("20251125165413_InitialCore")]
     partial class InitialCore
     {
         /// <inheritdoc />
@@ -110,6 +110,14 @@ namespace SimpleSocialNetwork.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("IsSystemUser")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int?>("MessagesLeft")
+                        .HasColumnType("int");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -120,6 +128,10 @@ namespace SimpleSocialNetwork.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<string>("PhotoPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("Token")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -128,6 +140,9 @@ namespace SimpleSocialNetwork.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
+
+                    b.Property<string>("VerifyHash")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 

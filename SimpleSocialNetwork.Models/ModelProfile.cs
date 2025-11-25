@@ -16,6 +16,7 @@ namespace SimpleSocialNetwork.Models
         public int? MessagesLeft { get; set; }
         public string PhotoPath { get; set; }
         public DateTime DateAdd { get; set; }
+        public string VerifyHash { get; set; } // For email verification
         public virtual List<ModelLike> Likes { get; set; }
     }
 }

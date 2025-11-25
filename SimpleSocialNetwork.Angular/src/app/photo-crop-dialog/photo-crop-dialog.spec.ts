@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { Login } from './login';
+import { PhotoCropDialog } from './photo-crop-dialog';
 
-describe('Login', () => {
-  let component: Login;
-  let fixture: ComponentFixture<Login>;
+describe('PhotoCropDialog', () => {
+  let component: PhotoCropDialog;
+  let fixture: ComponentFixture<PhotoCropDialog>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [Login]
+      imports: [PhotoCropDialog]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(Login);
+    fixture = TestBed.createComponent(PhotoCropDialog);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

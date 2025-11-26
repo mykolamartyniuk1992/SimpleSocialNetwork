@@ -10,6 +10,13 @@ using SimpleSocialNetwork.Service.ModelFeedService;
 using SimpleSocialNetwork.Service.ModelProfileService;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Поддержка кастомного окружения Local
+var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+if (string.Equals(env, "Local", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+}
 builder.Services.AddScoped<EmailService>();
 
 builder.Services.AddControllersWithViews(options =>
@@ -56,18 +63,21 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (!app.Environment.IsDevelopment())
+var isLocal = app.Environment.EnvironmentName.Equals(
+    "Local",
+    StringComparison.OrdinalIgnoreCase);
+
+if (!app.Environment.IsDevelopment() && !isLocal)
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
     app.UseHttpsRedirection();
 }
 
-app.UseStaticFiles();
 
 app.UseRouting();
-
 app.UseCors("AllowAngular");
+app.UseStaticFiles();
 
 app.MapControllerRoute(
     name: "default",

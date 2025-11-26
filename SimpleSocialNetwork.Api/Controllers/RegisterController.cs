@@ -64,7 +64,7 @@ public class RegisterController : ControllerBase
         var request = HttpContext.Request;
         var baseUrl = $"{request.Scheme}://{request.Host}";
         var verifyLink = $"{baseUrl}/api/profile/verify/{newProfile.email}/{verifyHash}";
-        _emailService.SendVerificationEmail(newProfile.email, verifyLink);
+        await _emailService.SendVerificationEmailAsync(newProfile.email, verifyLink);
 
         return Ok(new { id = profileId, token = token, isAdmin = isAdmin, name = name, photoUrl = photoPath, verified = verified, messagesLeft = messagesLeft });
     }

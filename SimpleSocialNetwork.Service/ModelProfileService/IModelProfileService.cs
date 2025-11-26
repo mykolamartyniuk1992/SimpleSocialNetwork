@@ -54,6 +54,8 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
         Task<string> GetUserTokenAsync(int profileId);
 
         Task DeleteUserAsync(int profileId);
+        
+        Task<bool> VerifyEmailAsync(string email, string hash);
     }
 
     public class UserDto

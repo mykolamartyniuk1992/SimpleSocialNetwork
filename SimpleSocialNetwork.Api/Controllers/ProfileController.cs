@@ -410,6 +410,33 @@ public class ProfileController : ControllerBase
         }
     }
 
+    [HttpGet("{email}/{hash}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Verify(string email, string hash)
+    {
+        var result = await _profileService.VerifyEmailAsync(email, hash);
+        if (result)
+        {
+            // Получить токен пользователя для SignalR (если есть)
+            var profile = await _profileService.GetAllUsersAsync();
+            var user = profile.FirstOrDefault(p => p.Email == email);
+            if (user != null)
+            {
+                // Получить токен пользователя
+                var token = await _profileService.GetUserTokenAsync(user.Id);
+                if (!string.IsNullOrEmpty(token))
+                {
+                    await _hubContext.Clients.All.SendAsync("UserVerificationChanged", token, true);
+                }
+            }
+            return Content("Email verified successfully!", "text/html");
+        }
+        else
+        {
+            return Content("Verification failed. Invalid or expired link.", "text/html");
+        }
+    }
+
     public class SetVerifiedRequest
     {
         public int ProfileId { get; set; }

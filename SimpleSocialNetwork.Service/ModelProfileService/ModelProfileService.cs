@@ -26,28 +26,38 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
             this.likeRepo = likeRepo;
             _configuration = configuration;
         }
-        
+
+        public async Task<bool> VerifyEmailAsync(string email, string hash)
+        {
+            var profile = await profileRepo.FirstOrDefaultAsync(p => p.Email == email && p.VerifyHash == hash);
+            if (profile == null)
+                return false;
+            profile.Verified = true;
+            await profileRepo.UpdateAsync(profile);
+            return true;
+        }
+
         public async Task<(int Id, string Token, bool IsAdmin, string Name, string PhotoPath, bool Verified, int? MessagesLeft)?> LoginAsync(string email, string password)
         {
             var profile = await profileRepo.FirstOrDefaultAsync(p => p.Email == email);
             if (profile != null)
             {
                 // System users have plain text passwords for development, regular users have hashed passwords
-                bool passwordValid = profile.IsSystemUser 
-                    ? profile.Password == password 
+                bool passwordValid = profile.IsSystemUser
+                    ? profile.Password == password
                     : PasswordHelper.VerifyPassword(password, profile.Password);
-                
+
                 if (passwordValid)
                 {
                     var token = Guid.NewGuid().ToString();
                     profile.Token = token;
-                    
+
                     // Auto-verify admin in development
                     if (profile.IsAdmin && !profile.Verified)
                     {
                         profile.Verified = true;
                     }
-                    
+
                     await profileRepo.UpdateAsync(profile);
                     return (profile.Id, token, profile.IsAdmin, profile.Name, profile.PhotoPath, profile.Verified, profile.MessagesLeft);
                 }
@@ -75,7 +85,7 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
 
             var token = Guid.NewGuid().ToString();
             var defaultMessageLimit = int.TryParse(_configuration["AppSettings:DefaultMessageLimit"], out var limit) ? limit : 100;
-            
+
             // Генерируем уникальный verify_hash
             var verifyHash = Guid.NewGuid().ToString("N");
             ModelProfile modelProfile = new ModelProfile()
@@ -157,8 +167,8 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
             }
 
             // Verify old password
-            bool passwordValid = profile.IsSystemUser 
-                ? profile.Password == oldPassword 
+            bool passwordValid = profile.IsSystemUser
+                ? profile.Password == oldPassword
                 : PasswordHelper.VerifyPassword(oldPassword, profile.Password);
 
             if (!passwordValid)
@@ -167,10 +177,10 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
             }
 
             // Update to new password (hash it unless it's a system user)
-            profile.Password = profile.IsSystemUser 
-                ? newPassword 
+            profile.Password = profile.IsSystemUser
+                ? newPassword
                 : PasswordHelper.HashPassword(newPassword);
-            
+
             await profileRepo.UpdateAsync(profile);
             return true;
         }
@@ -207,7 +217,7 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
                 {
                     throw new InvalidOperationException("Cannot change verification status of admin users");
                 }
-                
+
                 profile.Verified = verified;
                 await profileRepo.UpdateAsync(profile);
             }
@@ -288,16 +298,16 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
             try
             {
                 Console.WriteLine($"[UpdateAllUnverifiedMessagesLeftAsync] Starting update to limit: {messageLimit}");
-                
+
                 // Get all unverified, non-admin users (AsNoTracking returns detached entities)
                 var allUsers = await profileRepo.GetAllAsync();
                 Console.WriteLine($"[UpdateAllUnverifiedMessagesLeftAsync] Total users fetched: {allUsers.Count}");
-                
+
                 var usersToUpdate = allUsers
-                    .Where(p => !p.Verified && !p.IsAdmin && 
+                    .Where(p => !p.Verified && !p.IsAdmin &&
                                (!p.MessagesLeft.HasValue || p.MessagesLeft.Value != 0))
                     .ToList();
-                
+
                 Console.WriteLine($"[UpdateAllUnverifiedMessagesLeftAsync] Users to update: {usersToUpdate.Count}");
                 Console.WriteLine($"[UpdateAllUnverifiedMessagesLeftAsync] User IDs: {string.Join(", ", usersToUpdate.Select(u => u.Id))}");
 
@@ -334,7 +344,7 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
             try
             {
                 Console.WriteLine($"[UpdateUserMessageLimitAsync] Updating user {profileId} to limit: {messageLimit}");
-                
+
                 var user = await profileRepo.FirstOrDefaultAsync(p => p.Id == profileId);
                 if (user == null)
                 {
@@ -342,10 +352,10 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
                 }
 
                 Console.WriteLine($"[UpdateUserMessageLimitAsync] Found user: {user.Name}, Current limit: {user.MessagesLeft}");
-                
+
                 user.MessagesLeft = messageLimit;
                 await profileRepo.UpdateAsync(user);
-                
+
                 Console.WriteLine($"[UpdateUserMessageLimitAsync] Successfully updated user {profileId} to {messageLimit}");
             }
             catch (Exception ex)
@@ -383,10 +393,10 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
             var oldToken = profile.Token;
             profile.Token = string.Empty;
             await profileRepo.UpdateAsync(profile);
-            
+
             // Note: After UpdateAsync, the profile entity remains tracked in the DbContext
             // This is important for the subsequent DeleteUserAsync call
-            
+
             return oldToken;
         }
 
@@ -436,11 +446,11 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
                 {
                     Console.WriteLine($"Attempting to delete photo. PhotoPath: {profile.PhotoPath}");
                     Console.WriteLine($"Current directory: {Directory.GetCurrentDirectory()}");
-                    
+
                     // PhotoPath is stored as /api/profile/getphoto?profileId=X or uploads/profiles/X.png
                     // We need to extract the actual file path
                     string physicalPath;
-                    
+
                     if (profile.PhotoPath.Contains("profileId="))
                     {
                         // Extract profileId from the query string
@@ -452,9 +462,9 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
                         // Direct path like uploads/profiles/X.png
                         physicalPath = Path.Combine(Directory.GetCurrentDirectory(), profile.PhotoPath.TrimStart('/'));
                     }
-                    
+
                     Console.WriteLine($"Resolved physical path: {physicalPath}");
-                    
+
                     if (File.Exists(physicalPath))
                     {
                         File.Delete(physicalPath);

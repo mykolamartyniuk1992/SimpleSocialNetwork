@@ -1,42 +1,63 @@
-using System.Net;
-using System.Net.Mail;
+
 using Microsoft.Extensions.Configuration;
+using Google.Cloud.SecretManager.V1;
+using Resend;
+using System.Threading.Tasks;
 
 namespace SimpleSocialNetwork.Api.Services
 {
     public class EmailService
     {
+
         private readonly IConfiguration _configuration;
-        private readonly string _smtpHost;
-        private readonly int _smtpPort;
-        private readonly string _smtpUser;
-        private readonly string _smtpPass;
-        private readonly string _fromEmail;
+        private readonly string? _resendApiKey;
+        private readonly string? _fromEmail;
+        private readonly IResend _resendClient;
+
 
         public EmailService(IConfiguration configuration)
         {
             _configuration = configuration;
-            _smtpHost = _configuration["Email:SmtpHost"];
-            _smtpPort = int.Parse(_configuration["Email:SmtpPort"]);
-            _smtpUser = _configuration["Email:SmtpUser"];
-            _smtpPass = _configuration["Email:SmtpPass"];
+            var projectId = _configuration["Email:ProjectId"];
+            if (string.IsNullOrEmpty(projectId))
+                throw new ArgumentNullException(nameof(projectId), "ProjectId is not configured in appsettings.");
+            _resendApiKey = GetSecret($"projects/{projectId}/secrets/resend-email-api-key/versions/latest");
             _fromEmail = _configuration["Email:FromEmail"];
+            if (string.IsNullOrEmpty(_resendApiKey))
+                throw new ArgumentNullException(nameof(_resendApiKey), "Resend API key is not configured.");
+            if (string.IsNullOrEmpty(_fromEmail))
+                throw new ArgumentNullException(nameof(_fromEmail), "From email is not configured.");
+            _resendClient = ResendClient.Create(_resendApiKey);
         }
 
-        public void SendVerificationEmail(string toEmail, string verificationLink)
+        private string GetSecret(string secretName)
         {
-            var message = new MailMessage();
-            message.From = new MailAddress(_fromEmail);
-            message.To.Add(new MailAddress(toEmail));
-            message.Subject = "Verify your account";
-            message.Body = $"Please verify your account by clicking the link: {verificationLink}";
-            message.IsBodyHtml = false;
+            var client = SecretManagerServiceClient.Create();
+            var result = client.AccessSecretVersion(secretName);
+            return result.Payload.Data.ToStringUtf8();
+        }
 
-            using (var client = new SmtpClient(_smtpHost, _smtpPort))
+
+
+        public async Task SendVerificationEmailAsync(string toEmail, string verificationLink)
+        {
+            if (_fromEmail == null) throw new InvalidOperationException("From email is not set.");
+
+            var message = new EmailMessage
             {
-                client.EnableSsl = true;
-                client.Credentials = new NetworkCredential(_smtpUser, _smtpPass);
-                client.Send(message);
+                From = _fromEmail,
+                To = toEmail,
+                Subject = "Verify your account",
+                HtmlBody = $"<p>Please verify your account by clicking the link: <a href='{verificationLink}'>Verify</a></p>"
+            };
+
+            try
+            {
+                await _resendClient.EmailSendAsync(message);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to send email: {ex.Message}", ex);
             }
         }
     }

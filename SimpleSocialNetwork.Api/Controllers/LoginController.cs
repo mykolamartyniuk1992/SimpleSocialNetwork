@@ -42,8 +42,9 @@ namespace SimpleSocialNetwork.Controllers
         public async Task<ActionResult> GetAdminCredentials()
         {
             // Only available in development
-            var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-            if (!isDevelopment)
+            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+            var isDevOrLocal = env == "Development" || env == "Local";
+            if (!isDevOrLocal)
             {
                 return NotFound();
             }

@@ -44,10 +44,10 @@
 
         @if (isDevelopment) {
           <div class="dev-login-section">
-            <button mat-stroked-button color="accent" type="button" class="full-width" (click)="loginAsAdmin()">
+            <button mat-stroked-button color="accent" type="button" class="full-width" (click)="loginAsAdmin && loginAsAdmin()">
               Login as Administrator
             </button>
-            <button mat-stroked-button color="accent" type="button" class="full-width" (click)="loginAsTestUser()">
+            <button mat-stroked-button color="accent" type="button" class="full-width" (click)="loginAsTestUser && loginAsTestUser()">
               Login as TestUser
             </button>
           </div>

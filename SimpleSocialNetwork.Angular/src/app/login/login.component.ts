@@ -49,28 +49,36 @@ export class LoginComponent {
     });
   }
 
-  loginAsAdmin(): void {
-    this.http.get<{ email: string; password: string }>(`${environment.apiUrl}/login/getadmincredentials`)
-      .subscribe({
-        next: (credentials) => {
-          this.loginForm.patchValue({
-            email: credentials.email,
-            password: credentials.password
-          });
-          this.onSubmit();
-        },
-        error: (error) => {
-          console.error('Failed to get admin credentials', error);
-        }
-      });
-  }
+  // Development-only methods
+  // These methods will be tree-shaken in production build
+  loginAsAdmin?: () => void;
+  loginAsTestUser?: () => void;
 
-  loginAsTestUser(): void {
-    this.loginForm.patchValue({
-      email: 'testuser@simplesocialnetwork.local',
-      password: 'Test123!'
-    });
-    this.onSubmit();
+  ngOnInit() {
+    if (this.isDevelopment) {
+      this.loginAsAdmin = () => {
+        this.http.get<{ email: string; password: string }>(`${environment.apiUrl}/login/getadmincredentials`)
+          .subscribe({
+            next: (credentials) => {
+              this.loginForm.patchValue({
+                email: credentials.email,
+                password: credentials.password
+              });
+              this.onSubmit();
+            },
+            error: (error) => {
+              console.error('Failed to get admin credentials', error);
+            }
+          });
+      };
+      this.loginAsTestUser = () => {
+        this.loginForm.patchValue({
+          email: 'testuser@simplesocialnetwork.local',
+          password: 'Test123!'
+        });
+        this.onSubmit();
+      };
+    }
   }
 
   onSubmit() {

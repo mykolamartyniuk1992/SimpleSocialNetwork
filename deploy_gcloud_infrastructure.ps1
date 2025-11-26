@@ -28,7 +28,12 @@ Param(
   [string]$MailSecretName = "resend-email-api-key",
 
   # Resend DNS values (для отправки почты через mail.mykolamartyniuk1992.dev)
-  [string]$ResendDkimValue  = "PASTE_DKIM_VALUE_FROM_RESEND",
+  # DKIM from Resend:
+  # prefix = фиксированная часть DKIM
+  # key    = значение из Resend ("p=MIGfMA0GCSqGSIb3...")
+  [string]$ResendDkimPrefix = "v=DKIM1; k=rsa;"
+  [string]$ResendDkimKey    = "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQD..."   # вставь своё
+  [string]$ResendDkimValue  = "$ResendDkimPrefix $ResendDkimKey",
   [string]$ResendSpfValue   = "v=spf1 include:amazonses.com ~all",
   [string]$ResendDmarcValue = "v=DMARC1; p=none;",
 
@@ -78,6 +83,28 @@ function Invoke-Gcloud {
     throw "gcloud exited with code $($p.ExitCode). Args: $Args"
   }
   return $stdout
+}
+
+function Reset-DnsTransaction {
+    param([string]$ZoneName)
+
+    # Попробуем аккуратно абортнуть любую незавершённую транзакцию
+    try {
+        Invoke-Gcloud "dns record-sets transaction abort --zone=$ZoneName" -SuccessCode 0 | Out-Null
+    } catch {
+        # Если транзакции нет – тоже ок, молча игнорируем
+    }
+
+    # И на всякий случай удалим локальный transaction.yaml в текущей папке
+    try {
+        $txnPath = Join-Path (Get-Location) "transaction.yaml"
+        if (Test-Path $txnPath) {
+            Remove-Item $txnPath -Force -ErrorAction SilentlyContinue
+            Write-Host "Old DNS transaction file 'transaction.yaml' removed."
+        }
+    } catch {
+        # Тоже молча игнорируем
+    }
 }
 
 # --- gcloud available? ---
@@ -336,15 +363,6 @@ if ($currentDnsIp -and $currentDnsIp -eq $nowExternalIp) {
 # ---------- Resend DNS records (DKIM, SPF, DMARC) ----------
 Write-Host "`nConfiguring Resend DNS records…"
 
-# Чистим возможный transaction.yaml, чтобы не ломать transaction start
-try {
-    $txnPath = Join-Path (Get-Location) "transaction.yaml"
-    if (Test-Path $txnPath) {
-        Remove-Item $txnPath -Force -ErrorAction SilentlyContinue
-        Write-Host "Old DNS transaction file 'transaction.yaml' removed."
-    }
-} catch { }
-
 $baseDomain = $zoneDnsName.TrimEnd('.')      # mykolamartyniuk1992.dev
 $mailHost   = "mail.$baseDomain"             # mail.mykolamartyniuk1992.dev
 
@@ -375,6 +393,7 @@ $currentDkim = if ($null -ne $currentDkim) { $currentDkim.Trim() } else { "" }
 if ($currentDkim) {
   Write-Host "Updating DKIM TXT record: $dkimName"
   if (-not $WhatIf) {
+    Reset-DnsTransaction -ZoneName $DnsZoneName
     Invoke-Gcloud "dns record-sets transaction start   --zone=$DnsZoneName" | Out-Null
     Invoke-Gcloud "dns record-sets transaction remove  --zone=$DnsZoneName --name=""$dkimName"" --type=TXT --ttl=300 $currentDkim" | Out-Null
     Invoke-Gcloud "dns record-sets transaction add     --zone=$DnsZoneName --name=""$dkimName"" --type=TXT --ttl=300 $dkimTxtValue" | Out-Null
@@ -386,6 +405,7 @@ if ($currentDkim) {
 } else {
   Write-Host "Creating DKIM TXT record: $dkimName"
   if (-not $WhatIf) {
+    Reset-DnsTransaction -ZoneName $DnsZoneName
     Invoke-Gcloud "dns record-sets transaction start   --zone=$DnsZoneName" | Out-Null
     Invoke-Gcloud "dns record-sets transaction add     --zone=$DnsZoneName --name=""$dkimName"" --type=TXT --ttl=300 $dkimTxtValue" | Out-Null
     Invoke-Gcloud "dns record-sets transaction execute --zone=$DnsZoneName" | Out-Null
@@ -405,6 +425,7 @@ $currentSpfTxt = if ($null -ne $currentSpfTxt) { $currentSpfTxt.Trim() } else { 
 if ($currentSpfTxt) {
   Write-Host "Updating SPF TXT record: $spfName"
   if (-not $WhatIf) {
+    Reset-DnsTransaction -ZoneName $DnsZoneName
     Invoke-Gcloud "dns record-sets transaction start   --zone=$DnsZoneName" | Out-Null
     Invoke-Gcloud "dns record-sets transaction remove  --zone=$DnsZoneName --name=""$spfName"" --type=TXT --ttl=300 $currentSpfTxt" | Out-Null
     Invoke-Gcloud "dns record-sets transaction add     --zone=$DnsZoneName --name=""$spfName"" --type=TXT --ttl=300 $spfTxtValue" | Out-Null
@@ -416,6 +437,7 @@ if ($currentSpfTxt) {
 } else {
   Write-Host "Creating SPF TXT record: $spfName"
   if (-not $WhatIf) {
+    Reset-DnsTransaction -ZoneName $DnsZoneName
     Invoke-Gcloud "dns record-sets transaction start   --zone=$DnsZoneName" | Out-Null
     Invoke-Gcloud "dns record-sets transaction add     --zone=$DnsZoneName --name=""$spfName"" --type=TXT --ttl=300 $spfTxtValue" | Out-Null
     Invoke-Gcloud "dns record-sets transaction execute --zone=$DnsZoneName" | Out-Null
@@ -433,14 +455,13 @@ $currentSpfMx = (
 $currentSpfMx = if ($null -ne $currentSpfMx) { $currentSpfMx.Trim() } else { "" }
 
 if ($currentSpfMx -and $currentSpfMx -eq $spfMxRrData) {
-  # Уже нужное значение — ничего не делаем
   Write-Host "SPF MX already correct: $spfName -> $currentSpfMx"
 }
 elseif ($currentSpfMx) {
   Write-Host "Updating SPF MX record: $spfName"
   if (-not $WhatIf) {
+    Reset-DnsTransaction -ZoneName $DnsZoneName
     Invoke-Gcloud "dns record-sets transaction start   --zone=$DnsZoneName" | Out-Null
-    # ВАЖНО: завернуть rrdata в кавычки, чтобы это был один аргумент
     Invoke-Gcloud "dns record-sets transaction remove  --zone=$DnsZoneName --name=""$spfName"" --type=MX --ttl=300 ""$currentSpfMx""" | Out-Null
     Invoke-Gcloud "dns record-sets transaction add     --zone=$DnsZoneName --name=""$spfName"" --type=MX --ttl=300 ""$spfMxRrData""" | Out-Null
     Invoke-Gcloud "dns record-sets transaction execute --zone=$DnsZoneName" | Out-Null
@@ -452,6 +473,7 @@ elseif ($currentSpfMx) {
 else {
   Write-Host "Creating SPF MX record: $spfName"
   if (-not $WhatIf) {
+    Reset-DnsTransaction -ZoneName $DnsZoneName
     Invoke-Gcloud "dns record-sets transaction start   --zone=$DnsZoneName" | Out-Null
     Invoke-Gcloud "dns record-sets transaction add     --zone=$DnsZoneName --name=""$spfName"" --type=MX --ttl=300 ""$spfMxRrData""" | Out-Null
     Invoke-Gcloud "dns record-sets transaction execute --zone=$DnsZoneName" | Out-Null
@@ -471,6 +493,7 @@ $currentDmarc = if ($null -ne $currentDmarc) { $currentDmarc.Trim() } else { "" 
 if ($currentDmarc) {
   Write-Host "Updating DMARC TXT record: $dmarcName"
   if (-not $WhatIf) {
+    Reset-DnsTransaction -ZoneName $DnsZoneName
     Invoke-Gcloud "dns record-sets transaction start   --zone=$DnsZoneName" | Out-Null
     Invoke-Gcloud "dns record-sets transaction remove  --zone=$DnsZoneName --name=""$dmarcName"" --type=TXT --ttl=300 $currentDmarc" | Out-Null
     Invoke-Gcloud "dns record-sets transaction add     --zone=$DnsZoneName --name=""$dmarcName"" --type=TXT --ttl=300 $dmarcTxtValue" | Out-Null
@@ -482,6 +505,7 @@ if ($currentDmarc) {
 } else {
   Write-Host "Creating DMARC TXT record: $dmarcName"
   if (-not $WhatIf) {
+    Reset-DnsTransaction -ZoneName $DnsZoneName
     Invoke-Gcloud "dns record-sets transaction start   --zone=$DnsZoneName" | Out-Null
     Invoke-Gcloud "dns record-sets transaction add     --zone=$DnsZoneName --name=""$dmarcName"" --type=TXT --ttl=300 $dmarcTxtValue" | Out-Null
     Invoke-Gcloud "dns record-sets transaction execute --zone=$DnsZoneName" | Out-Null

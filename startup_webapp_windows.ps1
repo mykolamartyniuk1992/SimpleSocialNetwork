@@ -107,6 +107,33 @@ try {
   Write-Log "WARN enabling RDP: $_"
 }
 
+# ---------- OpenSSH Server (для SSH/PowerShell 7 remoting) ----------
+try {
+  Write-Log "Installing/starting OpenSSH Server..."
+
+  # Установить компонент, если ещё не установлен
+  $capName = 'OpenSSH.Server~~~~0.0.1.0'
+  $cap = Get-WindowsCapability -Online -Name $capName -ErrorAction SilentlyContinue
+  if ($cap -and $cap.State -ne 'Installed') {
+    Add-WindowsCapability -Online -Name $capName -ErrorAction Stop | Out-Null
+  }
+
+  # Включить и запустить sshd
+  Set-Service sshd -StartupType Automatic -ErrorAction Stop
+  Start-Service sshd -ErrorAction Stop
+
+  # Правило firewall на порт 22
+  netsh advfirewall firewall add rule `
+    name="OpenSSH-Server-In-TCP" `
+    dir=in action=allow protocol=TCP localport=22 `
+    | Out-Null
+
+  Write-Log "OpenSSH Server is installed and running (port 22 open)."
+}
+catch {
+  Write-Log "WARN OpenSSH Server: $_"
+}
+
 # ---------- Enable PowerShell Remoting (WinRM) ----------
 try {
     Write-Log "Enabling PowerShell remoting (WinRM)..."

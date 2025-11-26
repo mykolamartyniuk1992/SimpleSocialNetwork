@@ -95,23 +95,27 @@ Invoke-Gcloud "config set compute/region $Region" | Out-Null
 Invoke-Gcloud "config set compute/zone $Zone"     | Out-Null
 
 # --- Открытие порта 445 (SMB) в Google Cloud Firewall ---
-$firewallRuleName = "allow-smb-445"
+$firewallRuleName   = "allow-smb-445"
 $firewallRuleExists = $false
+
+# Пытаемся описать правило: если команда успешна – оно уже есть, если нет – значит нет
 try {
-  $existingRules = Invoke-Gcloud "compute firewall-rules list --filter=\"name=$firewallRuleName\" --format=\"value(name)\""
-  if ($existingRules -match $firewallRuleName) { $firewallRuleExists = $true }
-} catch { $firewallRuleExists = $false }
+    Invoke-Gcloud "compute firewall-rules describe $firewallRuleName --format=""value(name)""" | Out-Null
+    $firewallRuleExists = $true
+} catch {
+    $firewallRuleExists = $false
+}
 
 if ($firewallRuleExists) {
-  Write-Host "Firewall rule '$firewallRuleName' for port 445 already exists."
+    Write-Host "Firewall rule '$firewallRuleName' for port 445 already exists."
 } else {
-  if ($WhatIf) {
-    Write-Host "WhatIf: would create firewall rule '$firewallRuleName' to allow TCP:445 from any IP."
-  } else {
-    Write-Host "Creating firewall rule '$firewallRuleName' to allow TCP:445 from any IP..."
-    Invoke-Gcloud "compute firewall-rules create $firewallRuleName --allow=tcp:445 --direction=INGRESS --priority=1000 --network=$Network --target-tags=webapp --source-ranges=0.0.0.0/0 --description=\"Allow SMB (TCP 445) for deployment\""
-    Write-Host "✔ Firewall rule '$firewallRuleName' created."
-  }
+    if ($WhatIf) {
+        Write-Host "WhatIf: would create firewall rule '$firewallRuleName' to allow TCP:445 from any IP."
+    } else {
+        Write-Host "Creating firewall rule '$firewallRuleName' to allow TCP:445 from any IP..."
+        Invoke-Gcloud "compute firewall-rules create $firewallRuleName --allow=tcp:445 --direction=INGRESS --priority=1000 --network=$Network --target-tags=webapp --source-ranges=0.0.0.0/0 --description=""Allow SMB (TCP 445) for deployment"""
+        Write-Host "✔ Firewall rule '$firewallRuleName' created."
+    }
 }
 
 # --- enable Secret Manager API ---
@@ -272,6 +276,18 @@ if (-not ($fwNames -contains "allow-webapp-http-https")) {
   Write-Host "Firewall rule 'allow-webapp-http-https' already exists."
 }
 
+# SSH (tcp:22)
+if (-not ($fwNames -contains "allow-webapp-ssh")) {
+  if ($WhatIf) {
+    Write-Host "WhatIf: would create firewall rule 'allow-webapp-ssh'."
+  } else {
+    Write-Host "Creating firewall rule 'allow-webapp-ssh' (tcp:22)..."
+    Invoke-Gcloud "compute firewall-rules create allow-webapp-ssh --network=$Network --direction=INGRESS --priority=1000 --action=ALLOW --rules=tcp:22 --source-ranges=0.0.0.0/0 --target-tags=webapp"
+  }
+} else {
+  Write-Host "Firewall rule 'allow-webapp-ssh' already exists."
+}
+
 # SMTP relay (tcp:587)
 if (-not ($fwNames -contains "allow-smtp-relay")) {
   if ($WhatIf) {
@@ -341,7 +357,7 @@ $spfMxRrData = "10 feedback-smtp.eu-west-1.amazonses.com."
 
 # ----- DKIM TXT (resend._domainkey.mail.mykolamartyniuk1992.dev) -----
 $currentDkim = (
-  Invoke-Gcloud "dns record-sets list --zone=$DnsZoneName --name=$dkimName --type=TXT --format=""value(rrdatas[0])""" |
+  Invoke-Gcloud "dns record-sets list --zone=$DnsZoneName --name=""$dkimName"" --type=TXT --format=""value(rrdatas[0])""" |
   Select-Object -First 1
 )
 $currentDkim = if ($null -ne $currentDkim) { $currentDkim.Trim() } else { "" }
@@ -371,7 +387,7 @@ if ($currentDkim) {
 
 # ----- SPF TXT (send.mail.mykolamartyniuk1992.dev) -----
 $currentSpfTxt = (
-  Invoke-Gcloud "dns record-sets list --zone=$DnsZoneName --name=$spfName --type=TXT --format=""value(rrdatas[0])""" |
+  Invoke-Gcloud "dns record-sets list --zone=$DnsZoneName --name=""$spfName"" --type=TXT --format=""value(rrdatas[0])""" |
   Select-Object -First 1
 )
 $currentSpfTxt = if ($null -ne $currentSpfTxt) { $currentSpfTxt.Trim() } else { "" }
@@ -401,7 +417,7 @@ if ($currentSpfTxt) {
 
 # ----- SPF MX (send.mail.mykolamartyniuk1992.dev) -----
 $currentSpfMx = (
-  Invoke-Gcloud "dns record-sets list --zone=$DnsZoneName --name=$spfName --type=MX --format=""value(rrdatas[0])""" |
+  Invoke-Gcloud "dns record-sets list --zone=$DnsZoneName --name=""$spfName"" --type=MX --format=""value(rrdatas[0])""" |
   Select-Object -First 1
 )
 $currentSpfMx = if ($null -ne $currentSpfMx) { $currentSpfMx.Trim() } else { "" }
@@ -431,7 +447,7 @@ if ($currentSpfMx) {
 
 # ----- DMARC TXT (_dmarc.mail.mykolamartyniuk1992.dev) -----
 $currentDmarc = (
-  Invoke-Gcloud "dns record-sets list --zone=$DnsZoneName --name=$dmarcName --type=TXT --format=""value(rrdatas[0])""" |
+  Invoke-Gcloud "dns record-sets list --zone=$DnsZoneName --name=""$dmarcName"" --type=TXT --format=""value(rrdatas[0])""" |
   Select-Object -First 1
 )
 $currentDmarc = if ($null -ne $currentDmarc) { $currentDmarc.Trim() } else { "" }

@@ -23,5 +23,7 @@ namespace SimpleSocialNetwork.Data.Repositories
             CancellationToken ct = default);
 
         Task<List<T>> GetAllAsync(CancellationToken ct = default);
+
+        Task UpdateRangeAsync(IEnumerable<T> models, CancellationToken ct = default);
     }
 }

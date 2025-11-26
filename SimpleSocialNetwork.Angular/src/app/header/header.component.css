@@ -1,0 +1,89 @@
+.app-title {
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.profile-button {
+  margin-right: 8px;
+  padding: 0 !important;
+  min-width: 48px !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.profile-button .mat-mdc-button-touch-target {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.profile-avatar {
+  font-size: 32px;
+  width: 32px;
+  height: 32px;
+  color: white;
+}
+
+.profile-photo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid white;
+}
+
+.profile-menu-header {
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.profile-name {
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.verified-icon {
+  color: #1da1f2;
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.unverified-icon {
+  color: #999;
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.messages-counter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 16px;
+  padding: 6px 12px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  color: white;
+  font-size: 14px;
+}
+
+.messages-counter mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+::ng-deep .mat-mdc-menu-content {
+  padding: 0 !important;
+}

@@ -1,0 +1,48 @@
+<mat-toolbar color="primary">
+  <span class="app-title">Simple Social Network</span>
+  <span class="spacer"></span>
+  @if (isAuthenticated) {
+    @if (showMessagesLeft) {
+      <div class="messages-counter">
+        <mat-icon>message</mat-icon>
+        <span>You have {{ messagesLeft }} messages left</span>
+      </div>
+    }
+    <button mat-icon-button [matMenuTriggerFor]="profileMenu" class="profile-button">
+      @if (photoUrl) {
+        <img [src]="getFullPhotoUrl()" class="profile-photo" alt="Profile" />
+      } @else {
+        <mat-icon class="profile-avatar">account_circle</mat-icon>
+      }
+    </button>
+    <mat-menu #profileMenu="matMenu">
+      <div class="profile-menu-header">
+        <span class="profile-name">
+          {{ userName }}
+          @if (isVerified) {
+            <mat-icon class="verified-icon" matTooltip="Verified">verified</mat-icon>
+          } @else {
+            <mat-icon class="unverified-icon" matTooltip="Unverified">cancel</mat-icon>
+          }
+        </span>
+      </div>
+      <button mat-menu-item (click)="navigateToSettings()">
+        <mat-icon>settings</mat-icon>
+        <span>Account Settings</span>
+      </button>
+      <mat-divider></mat-divider>
+      <button mat-menu-item (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        <span>Logout</span>
+      </button>
+    </mat-menu>
+    <button mat-icon-button (click)="navigateToFeed()" aria-label="Feed" style="color: white;">
+      <mat-icon>feed</mat-icon>
+    </button>
+    @if (isAdmin) {
+      <button mat-icon-button (click)="navigateToAdmin()" aria-label="Admin Settings" style="color: white;">
+        <mat-icon>admin_panel_settings</mat-icon>
+      </button>
+    }
+  }
+</mat-toolbar>

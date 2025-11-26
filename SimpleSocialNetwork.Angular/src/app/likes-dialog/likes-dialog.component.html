@@ -1,0 +1,87 @@
+<h2 mat-dialog-title class="likes-dialog-title">
+  <mat-icon class="title-icon">thumb_up</mat-icon>
+  All Likes
+</h2>
+
+<mat-divider></mat-divider>
+
+<mat-dialog-content class="likes-dialog-content">
+  <!-- Загрузка -->
+  <div *ngIf="loading" class="loading">
+    <mat-progress-spinner mode="indeterminate" diameter="32"></mat-progress-spinner>
+    <span>Loading likes…</span>
+  </div>
+
+  <!-- Пусто -->
+  <div *ngIf="!loading && likes.length === 0" class="empty-state">
+    <mat-icon>sentiment_dissatisfied</mat-icon>
+    <p>No likes yet</p>
+  </div>
+
+  <!-- Список лайков -->
+  <mat-nav-list *ngIf="!loading && likes.length > 0" class="likes-list">
+    <mat-list-item *ngFor="let like of likes" class="like-item">
+      <img
+        *ngIf="like.photoPath"
+        matListItemAvatar
+        [src]="getFullPhotoUrl(like.photoPath)"
+        (error)="onImgError($event)"
+        alt="Avatar"
+      />
+      <mat-icon
+        *ngIf="!like.photoPath"
+        matListItemAvatar
+        class="avatar-fallback"
+        >account_circle</mat-icon
+      >
+
+      <div matListItemTitle class="like-name">
+        {{ like.profileName }}
+      </div>
+    </mat-list-item>
+  </mat-nav-list>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="likes-dialog-actions">
+  <div class="pagination">
+    <button
+      mat-icon-button
+      (click)="goToPage(1)"
+      [disabled]="page === 1"
+      aria-label="First page"
+    >
+      <mat-icon>first_page</mat-icon>
+    </button>
+
+    <button
+      mat-icon-button
+      (click)="goToPage(page - 1)"
+      [disabled]="page === 1"
+      aria-label="Previous page"
+    >
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+
+    <span class="page-label">Page {{ page }} of {{ totalPages }}</span>
+
+    <button
+      mat-icon-button
+      (click)="goToPage(page + 1)"
+      [disabled]="page === totalPages"
+      aria-label="Next page"
+    >
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+
+    <button
+      mat-icon-button
+      (click)="goToPage(totalPages)"
+      [disabled]="page === totalPages"
+      aria-label="Last page"
+    >
+      <mat-icon>last_page</mat-icon>
+    </button>
+  </div>
+
+  <button mat-stroked-button color="primary" (click)="close()">Close</button>
+</mat-dialog-actions>

@@ -7,6 +7,7 @@
     <ProjectReference Include="..\SimpleSocialNetwork.Data\SimpleSocialNetwork.Data.csproj" />
     <ProjectReference Include="..\SimpleSocialNetwork.Dto\SimpleSocialNetwork.Dto.csproj" />
     <ProjectReference Include="..\SimpleSocialNetwork.Models\SimpleSocialNetwork.Models.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Cryptography.KeyDerivation" Version="9.*" />
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="System.Data.DataSetExtensions" Version="4.5.0" />
   </ItemGroup>

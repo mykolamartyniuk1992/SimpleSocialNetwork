@@ -1,0 +1,71 @@
+:host {
+  --toolbar-height: 64px;
+}
+
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: calc(100vh - var(--toolbar-height));
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+mat-card {
+  max-width: 400px;
+  width: 100%;
+  padding: 20px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+button[type="submit"] {
+  margin-top: 16px;
+  height: 48px;
+  font-size: 16px;
+}
+
+.dev-login-section {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dev-login-section button {
+  height: 40px;
+  font-size: 14px;
+}
+
+.register-section {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.register-section p {
+  margin-bottom: 12px;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
+
+.register-section button {
+  height: 48px;
+  font-size: 16px;
+}
+
+.error-message {
+  color: #f44336;
+  font-size: 14px;
+  padding: 8px;
+  background-color: #ffebee;
+  border-radius: 4px;
+  text-align: center;
+}

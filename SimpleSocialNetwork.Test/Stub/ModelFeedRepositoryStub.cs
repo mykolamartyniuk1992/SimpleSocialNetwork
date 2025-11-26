@@ -75,5 +75,17 @@ namespace SimpleSocialNetwork.Test.Stub
             var compiled = predicate.Compile();
             return Task.FromResult(_feeds.Any(compiled));
         }
+
+        public Task UpdateRangeAsync(IEnumerable<ModelFeed> models, CancellationToken ct = default)
+        {
+            if (models == null) throw new ArgumentNullException(nameof(models));
+            ct.ThrowIfCancellationRequested();
+            foreach (var model in models)
+            {
+                var idx = _feeds.FindIndex(f => f.Id == model.Id);
+                if (idx >= 0) _feeds[idx] = model;
+            }
+            return Task.CompletedTask;
+        }
     }
 }

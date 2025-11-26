@@ -4,9 +4,9 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Debug Gulp (Web)",
-      "cwd": "${workspaceFolder}/SimpleSocialNetwork.Web",
-      "program": "${workspaceFolder}/SimpleSocialNetwork.Web/node_modules/gulp/bin/gulp.js",
+      "name": "Debug Gulp (Api)",
+      "cwd": "${workspaceFolder}/SimpleSocialNetwork.Api",
+      "program": "${workspaceFolder}/SimpleSocialNetwork.Api/node_modules/gulp/bin/gulp.js",
       "args": ["default"],                   // <-- поставь имя своего таска: "copy-npm", "copy-js", ...
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**"],
@@ -21,7 +21,7 @@
       "args": [
         "run",
         "--project",
-        "SimpleSocialNetwork.Web/SimpleSocialNetwork.Web.csproj"
+        "SimpleSocialNetwork.Api/SimpleSocialNetwork.Api.csproj"
       ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",

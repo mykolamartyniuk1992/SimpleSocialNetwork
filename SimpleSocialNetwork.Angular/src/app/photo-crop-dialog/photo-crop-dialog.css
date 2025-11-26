@@ -1,0 +1,12 @@
+mat-dialog-content {
+  width: 500px;
+  height: 500px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+image-cropper {
+  max-height: 100%;
+}

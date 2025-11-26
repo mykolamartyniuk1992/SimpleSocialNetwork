@@ -1,0 +1,65 @@
+<div class="login-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Login</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <form class="login-form" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Email</mat-label>
+          <input matInput type="email" formControlName="email" placeholder="your@email.com" />
+          <mat-icon matPrefix>email</mat-icon>
+          @if (loginForm.get('email')?.value) {
+            <button mat-icon-button matSuffix type="button" (click)="clearFields()" [attr.aria-label]="'Clear email'">
+              <mat-icon>close</mat-icon>
+            </button>
+          }
+          @if (loginForm.get('email')?.hasError('required') && loginForm.get('email')?.touched) {
+            <mat-error>Email is required</mat-error>
+          }
+          @if (loginForm.get('email')?.hasError('email') && loginForm.get('email')?.touched) {
+            <mat-error>Invalid email format</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Password</mat-label>
+          <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" placeholder="Enter your password" />
+          <mat-icon matPrefix>lock</mat-icon>
+          <button mat-icon-button matSuffix type="button" (click)="hidePassword = !hidePassword" [attr.aria-label]="'Toggle password visibility'">
+            <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
+          </button>
+          @if (loginForm.get('password')?.hasError('required') && loginForm.get('password')?.touched) {
+            <mat-error>Password is required</mat-error>
+          }
+        </mat-form-field>
+
+        @if (errorMessage) {
+          <div class="error-message">{{ errorMessage }}</div>
+        }
+
+        <button mat-raised-button color="primary" type="submit" class="full-width" [disabled]="!loginForm.valid">
+          Sign in
+        </button>
+
+        @if (isDevelopment) {
+          <div class="dev-login-section">
+            <button mat-stroked-button color="accent" type="button" class="full-width" (click)="loginAsAdmin && loginAsAdmin()">
+              Login as Administrator
+            </button>
+            <button mat-stroked-button color="accent" type="button" class="full-width" (click)="loginAsTestUser && loginAsTestUser()">
+              Login as TestUser
+            </button>
+          </div>
+        }
+
+        <div class="register-section">
+          <p>Don't have an account?</p>
+          <button mat-stroked-button color="primary" type="button" class="full-width" (click)="navigateToRegister()">
+            Register
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

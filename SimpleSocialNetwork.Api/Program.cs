@@ -52,6 +52,14 @@ builder.Services.AddCors(options =>
     });
 });
 
+// ОТКЛЮЧАЕМ автоматическую 400 ошибку
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
+{
+    // Это позволит запросу с пустыми полями зайти в метод контроллера,
+    // где сработают ваши проверки (if string.IsNullOrWhiteSpace ...)
+    options.SuppressModelStateInvalidFilter = true;
+});
+
 var app = builder.Build();
 
 var isLocal = app.Environment.EnvironmentName.Equals(

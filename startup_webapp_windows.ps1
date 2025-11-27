@@ -1,6 +1,6 @@
 # ==============================================================================
 # startup_webapp_windows.ps1
-# FINAL VERSION: Visual Studio v18 + SQL 2022 + Dynamic Shortcuts
+# FINAL: VS v18 + SQL 2022 + OpenSSH + Google Auth
 # ==============================================================================
 
 $ErrorActionPreference = 'Stop'
@@ -19,7 +19,6 @@ if (Test-Path $MarkerFile) {
 # 🚀 STAGE 1 START
 # ==============================================================================
 
-# --- Helpers ---
 function Get-Meta {
     param([string]$Path)
     try {
@@ -48,17 +47,85 @@ New-Item -Force -ItemType Directory "C:\webapp\wwwroot", $InstallersDir | Out-Nu
 Write-Log "STAGE 1 START. Domain=$Domain"
 
 # --- Fix Long Paths ---
-try {
-    New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -PropertyType DWord -Value 1 -Force | Out-Null
-} catch {}
+try { New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -PropertyType DWord -Value 1 -Force | Out-Null } catch {}
 
 # ============================================
-# 1. OpenSSH Fix (System Profile Temp)
+# 0. SETUP GOOGLE AUTH (NEW !!!)
 # ============================================
-if (-not (Test-Path "C:\Windows\System32\config\systemprofile\AppData\Local\Temp")) {
-    Write-Log "Fixing OpenSSH Temp folder permissions..."
-    New-Item -Path "C:\Windows\System32\config\systemprofile\AppData\Local\Temp" -ItemType Directory -Force | Out-Null
-}
+try {
+    Write-Log "Setting up Google Cloud Credentials..."
+    
+    # 1. Read key from Metadata (injected by deploy script)
+    $KeyContent = Get-Meta "instance/attributes/google-key-json"
+    $KeyPath = "C:\webapp\google_key.json"
+    
+    if (-not [string]::IsNullOrWhiteSpace($KeyContent)) {
+        # 2. Save Key File
+        Set-Content -Path $KeyPath -Value $KeyContent -Encoding UTF8 -Force
+        Write-Log "Google Key saved to $KeyPath"
+
+        # 3. Set System Environment Variable (Persists after reboot)
+        [Environment]::SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", $KeyPath, "Machine")
+        Write-Log "Environment variable GOOGLE_APPLICATION_CREDENTIALS set."
+
+        # 4. Authenticate gcloud (so command line works immediately)
+        # Note: gcloud might not be in PATH yet for System account, try absolute path if needed, usually it works if installed in image
+        & gcloud auth activate-service-account --key-file=$KeyPath --quiet
+        Write-Log "gcloud authenticated via service account."
+    } else {
+        Write-Log "WARN: No google-key-json found in metadata."
+    }
+} catch { Write-Log "ERROR Google Auth Setup: $_" }
+
+# ============================================
+# 1. OpenSSH Installation & Config
+# ============================================
+try {
+    Write-Log "Installing OpenSSH Server..."
+    $capName = 'OpenSSH.Server~~~~0.0.1.0'
+    $cap = Get-WindowsCapability -Online -Name $capName -ErrorAction SilentlyContinue
+    if ($cap.State -ne 'Installed') { Add-WindowsCapability -Online -Name $capName -ErrorAction Stop | Out-Null }
+
+    Set-Service -Name sshd -StartupType Automatic
+    Start-Service sshd
+    netsh advfirewall firewall add rule name="OpenSSH Server (sshd)" dir=in action=allow protocol=TCP localport=22 | Out-Null
+
+    Write-Log "Configuring SSH Keys for user $SshUser..."
+    $UserDir = "C:\Users\$SshUser"
+    $SshDir  = "$UserDir\.ssh"
+    $AuthKey = "$SshDir\authorized_keys"
+
+    if (-not (Test-Path $SshDir)) { New-Item -ItemType Directory -Force -Path $SshDir | Out-Null }
+
+    $UserPublicKey = Get-Meta "instance/attributes/ssh-public-key"
+    if (-not [string]::IsNullOrWhiteSpace($UserPublicKey)) {
+        $UserPublicKey = $UserPublicKey.Trim()
+        Set-Content -Path $AuthKey -Value $UserPublicKey -Encoding Ascii -Force
+        
+        $acl = Get-Acl $SshDir
+        $acl.SetAccessRuleProtection($true, $false)
+        $acl.Access | ForEach-Object { $acl.RemoveAccessRule($_) }
+        
+        $rights = [System.Security.AccessControl.FileSystemRights]::FullControl
+        $type   = [System.Security.AccessControl.AccessControlType]::Allow
+        
+        $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule($SshUser, $rights, $type)))
+        $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule("NT AUTHORITY\SYSTEM", $rights, $type)))
+        $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule("BUILTIN\Administrators", $rights, $type)))
+        
+        Set-Acl -Path $SshDir -AclObject $acl
+        Set-Acl -Path $AuthKey -AclObject $acl
+    }
+
+    $ConfigPath = "C:\ProgramData\ssh\sshd_config"
+    if (Test-Path $ConfigPath) {
+        $conf = Get-Content $ConfigPath -Raw
+        $conf = $conf -replace 'Match Group administrators', '# Match Group administrators'
+        $conf = $conf -replace 'AuthorizedKeysFile __PROGRAMDATA__', '# AuthorizedKeysFile __PROGRAMDATA__'
+        $conf | Set-Content $ConfigPath -Encoding UTF8
+        Restart-Service sshd -Force
+    }
+} catch { Write-Log "WARN SSH Setup: $_" }
 
 # ============================================
 # 2. Install GitHub Desktop
@@ -68,9 +135,7 @@ try {
     $ghUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32?format=msi"
     $ghMsi = Join-Path $InstallersDir "GitHubDesktopSetup.msi"
     (New-Object System.Net.WebClient).DownloadFile($ghUrl, $ghMsi)
-    
     Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$ghMsi`" /qn /norestart ALLUSERS=1" -Wait
-    Write-Log "GitHub Desktop installed."
 } catch { Write-Log "ERROR GitHub Desktop: $_" }
 
 # ============================================
@@ -86,7 +151,6 @@ if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
 try {
     Write-Log "Installing base packages..."
     choco install git nssm caddy vscode sql-server-management-studio nodejs-lts googlechrome -y --no-progress --limit-output
-    Write-Log "Chocolatey packages installed."
 } catch { Write-Log "ERROR Choco packages: $_" }
 
 # ============================================
@@ -94,15 +158,11 @@ try {
 # ============================================
 try {
     Write-Log "Downloading Visual Studio 2026 (v18)..."
-    
-    # Ссылка v18
     $vsUrl  = "https://aka.ms/vs/18/Stable/vs_community.exe"
     $vsPath = Join-Path $InstallersDir "vs_Community_2026.exe"
     (New-Object System.Net.WebClient).DownloadFile($vsUrl, $vsPath)
 
-    Write-Log "Installing Visual Studio... (Using default path)"
-    
-    # УБРАН --installPath. Пусть установщик сам выберет путь по умолчанию.
+    Write-Log "Installing Visual Studio..."
     $vsArgs = "--quiet --wait --norestart --nocache `
     --add Microsoft.VisualStudio.Workload.NetWeb `
     --add Microsoft.VisualStudio.Workload.ManagedDesktop `
@@ -110,9 +170,7 @@ try {
     --includeRecommended --includeOptional"
 
     $p = Start-Process -FilePath $vsPath -ArgumentList $vsArgs -Wait -PassThru
-    
     if ($p.ExitCode -ne 0) { Write-Log "WARN: VS Installer exit code: $($p.ExitCode)" }
-    else { Write-Log "VS Installed Successfully." }
 } catch { Write-Log "ERROR VS Install: $_" }
 
 # ============================================
@@ -125,58 +183,30 @@ try {
     $Stage2Script = @'
 $ErrorActionPreference = 'Stop'
 $LogFile = 'C:\webapp\logs\stage2_sql.log'
-
 function Log($m) { "[{0}] {1}" -f (Get-Date -Format s), $m | Add-Content $LogFile }
-
 Log "STAGE 2 START: Waiting for network..."
 Start-Sleep -Seconds 30
-
 try {
     Log "Installing SQL Server 2022..."
     $p = "/ACTION=Install /IACCEPTSQLSERVERLICENSETERMS=True /SECURITYMODE=SQL /SAPWD=`"P@ssw0rd!ChangeMe`" /TCPENABLED=1 /SQLSYSADMINACCOUNTS=`"BUILTIN\Administrators`""
     choco install sql-server-2022 -y --no-progress --execution-timeout=3600 --params="'$p'" | Out-String | Add-Content $LogFile
     Log "SQL Server installed."
-} catch {
-    Log "ERROR installing SQL: $_"
-}
-
+} catch { Log "ERROR installing SQL: $_" }
 Unregister-ScheduledTask -TaskName "InstallSQL" -Confirm:$false -ErrorAction SilentlyContinue
 Log "STAGE 2 COMPLETE. Rebooting."
 Start-Sleep -Seconds 5
 Restart-Computer -Force
 '@
-
     $Stage2Script | Set-Content -Path $Stage2Path -Encoding UTF8
 
     $Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$Stage2Path`""
     $Trigger = New-ScheduledTaskTrigger -AtStartup
     $Principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
     Register-ScheduledTask -TaskName "InstallSQL" -Action $Action -Trigger $Trigger -Principal $Principal -Force | Out-Null
-    
-    Write-Log "Stage 2 Task Registered."
 } catch { Write-Log "ERROR Stage 2 Setup: $_" }
 
 # ============================================
-# 6. OpenSSH Config
-# ============================================
-try {
-    Write-Log "Configuring OpenSSH..."
-    $SshDir = "C:\Users\$SshUser\.ssh"
-    if (-not (Test-Path $SshDir)) { New-Item -ItemType Directory -Force -Path $SshDir | Out-Null }
-    
-    $UserPublicKey = Get-Meta "instance/attributes/ssh-public-key"
-    if (-not [string]::IsNullOrWhiteSpace($UserPublicKey)) {
-        $UserPublicKey.Trim() | Set-Content -Path "$SshDir\authorized_keys" -Encoding Ascii -Force
-        icacls "$SshDir\authorized_keys" /inheritance:r /grant "$($SshUser):F" /grant SYSTEM:F /grant Administrators:F | Out-Null
-    }
-    
-    Set-Service -Name sshd -StartupType Automatic
-    Start-Service sshd
-    Write-Log "OpenSSH Configured."
-} catch { Write-Log "WARN SSH: $_" }
-
-# ============================================
-# 7. Shortcuts (Robust Dynamic Search)
+# 7. Shortcuts
 # ============================================
 function New-Shortcut {
     param([string]$Target, [string]$Name)
@@ -192,29 +222,21 @@ function New-Shortcut {
 
 try {
     Write-Log "Creating Shortcuts..."
-    # VS Code
     if ($e = (Get-Command "Code.exe" -ErrorAction SilentlyContinue).Source) { New-Shortcut -Target $e -Name "Visual Studio Code" }
     
-    # 1. SSMS (Ищем в Program Files И Program Files (x86) - v22 ставится в x64)
     $paths64 = Resolve-Path "C:\Program Files\Microsoft SQL Server Management Studio*\Release\Common7\IDE\Ssms.exe" -ErrorAction SilentlyContinue
     $paths86 = Resolve-Path "C:\Program Files (x86)\Microsoft SQL Server Management Studio*\Common7\IDE\Ssms.exe" -ErrorAction SilentlyContinue
-    $allSSMS = @($paths64, $paths86) | Where-Object { $_ } # Объединяем и фильтруем nulls
-    
+    $allSSMS = @($paths64, $paths86) | Where-Object { $_ } 
     if ($allSSMS.Count -gt 0) {
         $latestSSMS = $allSSMS | Sort-Object Path | Select-Object -Last 1
         New-Shortcut -Target $latestSSMS.Path -Name "SQL Server Management Studio"
     }
 
-    # 2. VISUAL STUDIO (Ищем в Program Files, любая версия)
     $vsRoots = Resolve-Path "$env:ProgramFiles\Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe" -ErrorAction SilentlyContinue
     if ($vsRoots) {
         $latestVS = $vsRoots | Sort-Object Path | Select-Object -Last 1
-        Write-Log "Found Visual Studio at: $latestVS"
         New-Shortcut -Target $latestVS.Path -Name "Visual Studio"
-    } else {
-        Write-Log "WARN: Could not find devenv.exe automatically."
     }
-
 } catch { Write-Log "WARN Shortcuts: $_" }
 
 # ============================================
@@ -238,6 +260,7 @@ $Domain {
     & nssm install caddy $caddyExe 'run' '--config' $Caddyfile '--adapter' 'caddyfile' 2>$null
     & nssm set caddy AppDirectory "C:\webapp" 2>$null
     & nssm set caddy Start SERVICE_AUTO_START 2>$null
+    netsh advfirewall firewall add rule name="Caddy Web Server" dir=in action=allow protocol=TCP localport=80,443 2>$null | Out-Null
     Start-Service caddy
 } catch { Write-Log "WARN Caddy: $_" }
 
@@ -246,6 +269,5 @@ $Domain {
 # ============================================
 Write-Log "STAGE 1 DONE. Creating marker file and rebooting for Stage 2..."
 New-Item -Path $MarkerFile -ItemType File -Force | Out-Null
-
 Start-Sleep -Seconds 5
 Restart-Computer -Force

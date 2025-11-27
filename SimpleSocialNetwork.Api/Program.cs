@@ -61,11 +61,15 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options 
     options.SuppressModelStateInvalidFilter = true;
 });
 
-// Tell .NET to accept headers from Caddy (X-Forwarded-Proto, X-Forwarded-For)
+// Tell .NET to accept headers from Caddy
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders =
         ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        
+    // !!! ВАЖНО: Доверяем всем прокси (так как Caddy стоит локально и порт 8080 закрыт фаерволом)
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
 });
 
 var app = builder.Build();
@@ -81,7 +85,10 @@ if (!app.Environment.IsDevelopment() && !isLocal)
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
-    app.UseHttpsRedirection();
+    
+    // ОТКЛЮЧАЕМ РЕДИРЕКТ ВНУТРИ .NET. 
+    // Эту работу уже делает Caddy снаружи.
+    // app.UseHttpsRedirection();
 }
 
 app.UseRouting();

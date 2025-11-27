@@ -1,6 +1,6 @@
 # ==============================================================================
 # startup_webapp_windows.ps1
-# FINAL v2: VS 2022 + SQL 2022 + OpenSSH (Fixed) + GitHub MSI
+# FINAL v3: TLS Fix + VS 2022 + SQL 2022 + OpenSSH Admin Fix + GitHub MSI
 # ==============================================================================
 
 $ErrorActionPreference = 'Stop'
@@ -19,15 +19,6 @@ if (Test-Path $MarkerFile) {
 # 🚀 STAGE 1 START
 # ==============================================================================
 
-function Get-Meta {
-    param([string]$Path)
-    try {
-        $wc = New-Object System.Net.WebClient
-        $wc.Headers['Metadata-Flavor'] = 'Google'
-        return $wc.DownloadString("http://metadata.google.internal/computeMetadata/v1/$Path")
-    } catch { return $null }
-}
-
 $LogsRoot = "C:\webapp\logs"
 New-Item -Force -ItemType Directory $LogsRoot | Out-Null
 $GlobalLog = Join-Path $LogsRoot "startup.log"
@@ -35,6 +26,19 @@ $GlobalLog = Join-Path $LogsRoot "startup.log"
 function Write-Log($msg) { 
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     "[$ts] $msg" | Tee-Object -FilePath $GlobalLog -Append 
+}
+
+# --- CRITICAL: NETWORK SECURITY FIX ---
+# Включаем TLS 1.2 СРАЗУ. Без этого скачивание с GitHub и Microsoft не работает.
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+function Get-Meta {
+    param([string]$Path)
+    try {
+        $wc = New-Object System.Net.WebClient
+        $wc.Headers['Metadata-Flavor'] = 'Google'
+        return $wc.DownloadString("http://metadata.google.internal/computeMetadata/v1/$Path")
+    } catch { return $null }
 }
 
 # --- Config ---
@@ -76,7 +80,6 @@ try {
     $cap = Get-WindowsCapability -Online -Name $capName -ErrorAction SilentlyContinue
     if ($cap.State -ne 'Installed') { Add-WindowsCapability -Online -Name $capName -ErrorAction Stop | Out-Null }
 
-    # Остановим службу перед настройкой
     Stop-Service sshd -ErrorAction SilentlyContinue 
 
     Write-Log "Configuring SSH User $SshUser..."
@@ -100,7 +103,7 @@ try {
     if (-not [string]::IsNullOrWhiteSpace($UserPublicKey)) {
         $UserPublicKey = $UserPublicKey.Trim()
         
-        # --- МЕСТО 1: Личная папка (для обычного входа) ---
+        # --- МЕСТО 1: Личная папка ---
         Set-Content -Path $AuthKey -Value $UserPublicKey -Encoding Ascii -Force
         
         $acl = Get-Acl $SshDir
@@ -117,20 +120,15 @@ try {
         # --- МЕСТО 2: Системная папка (ОБЯЗАТЕЛЬНО ДЛЯ АДМИНОВ) ---
         $AdminKeyPath = "C:\ProgramData\ssh\administrators_authorized_keys"
         Write-Log "Writing Admin Keys to $AdminKeyPath..."
-        
         Set-Content -Path $AdminKeyPath -Value $UserPublicKey -Encoding Ascii -Force
-        
-        # Критически важно настроить права на этот файл, иначе SSH его проигнорирует
-        # Используем icacls для надежности (права: только SYSTEM и Administrators)
         $cmd = "icacls ""$AdminKeyPath"" /inheritance:r /grant ""Administrators:F"" /grant ""SYSTEM:F"""
         Invoke-Expression $cmd | Out-Null
     }
 
-    # 1.4 Настройка sshd_config (на всякий случай включаем все методы)
+    # 1.4 Настройка sshd_config
     $ConfigPath = "C:\ProgramData\ssh\sshd_config"
     if (Test-Path $ConfigPath) {
         $conf = Get-Content $ConfigPath -Raw
-        # Добавляем явные настройки, если их там нет
         if ($conf -notmatch "PasswordAuthentication no") {
             $extraSettings = @"
             
@@ -152,14 +150,29 @@ StrictModes no
 # 2. Install GitHub Desktop (MSI Manual)
 # ============================================
 try {
-    Write-Log "Installing GitHub Desktop (MSI)..."
+    Write-Log "Downloading GitHub Desktop MSI..."
     $ghUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32?format=msi"
     $ghMsi = Join-Path $InstallersDir "GitHubDesktopSetup.msi"
+    
     (New-Object System.Net.WebClient).DownloadFile($ghUrl, $ghMsi)
     
-    # ALLUSERS=1 ставит в Program Files (доступно всем)
-    Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$ghMsi`" /qn /norestart ALLUSERS=1" -Wait
-    Write-Log "GitHub Desktop installed."
+    # Проверка целостности файла перед запуском
+    if ((Get-Item $ghMsi).Length -gt 1000000) {
+        Write-Log "Installing GitHub Desktop..."
+        # Добавил логирование MSI установки для отладки
+        $logMsi = Join-Path $LogsRoot "github_install.log"
+        $args = "/i `"$ghMsi`" /qn /norestart ALLUSERS=1 /L*v `"$logMsi`""
+        
+        $p = Start-Process -FilePath "msiexec.exe" -ArgumentList $args -Wait -PassThru
+        
+        if ($p.ExitCode -eq 0) {
+            Write-Log "GitHub Desktop installed successfully."
+        } else {
+            Write-Log "ERROR: GitHub Desktop install failed. Code: $($p.ExitCode)"
+        }
+    } else {
+        Write-Log "ERROR: GitHub Desktop MSI download failed (file too small)."
+    }
 } catch { Write-Log "ERROR GitHub Desktop: $_" }
 
 # ============================================
@@ -168,13 +181,12 @@ try {
 if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
     Write-Log "Installing Chocolatey..."
     Set-ExecutionPolicy Bypass -Scope Process -Force
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 }
 
 try {
     Write-Log "Installing base packages..."
-    # Убрал github-desktop, так как ставим его выше через MSI
+    # github-desktop убран отсюда, так как ставится выше через MSI
     $packages = @("git", "nssm", "caddy", "vscode", "sql-server-management-studio", "nodejs-lts", "googlechrome")
     choco install $packages -y --no-progress --limit-output
 } catch { Write-Log "ERROR Choco packages: $_" }
@@ -184,7 +196,6 @@ try {
 # ============================================
 try {
     Write-Log "Downloading Visual Studio 2022 (v17)..."
-    # Ссылка изменена на корректную VS 2022
     $vsUrl  = "https://aka.ms/vs/17/release/vs_community.exe"
     $vsPath = Join-Path $InstallersDir "vs_community.exe"
     (New-Object System.Net.WebClient).DownloadFile($vsUrl, $vsPath)

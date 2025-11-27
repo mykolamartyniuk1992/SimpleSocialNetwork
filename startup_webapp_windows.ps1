@@ -1,6 +1,6 @@
 # ==============================================================================
 # startup_webapp_windows.ps1
-# FINAL: VS v18 + SQL 2022 + OpenSSH + Google Auth
+# FINAL v2: VS 2022 + SQL 2022 + OpenSSH (Fixed) + GitHub MSI
 # ==============================================================================
 
 $ErrorActionPreference = 'Stop'
@@ -50,35 +50,25 @@ Write-Log "STAGE 1 START. Domain=$Domain"
 try { New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -PropertyType DWord -Value 1 -Force | Out-Null } catch {}
 
 # ============================================
-# 0. SETUP GOOGLE AUTH (NEW !!!)
+# 0. SETUP GOOGLE AUTH
 # ============================================
 try {
     Write-Log "Setting up Google Cloud Credentials..."
-    
-    # 1. Read key from Metadata (injected by deploy script)
     $KeyContent = Get-Meta "instance/attributes/google-key-json"
     $KeyPath = "C:\webapp\google_key.json"
     
     if (-not [string]::IsNullOrWhiteSpace($KeyContent)) {
-        # 2. Save Key File
         Set-Content -Path $KeyPath -Value $KeyContent -Encoding UTF8 -Force
-        Write-Log "Google Key saved to $KeyPath"
-
-        # 3. Set System Environment Variable (Persists after reboot)
         [Environment]::SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", $KeyPath, "Machine")
-        Write-Log "Environment variable GOOGLE_APPLICATION_CREDENTIALS set."
-
-        # 4. Authenticate gcloud (so command line works immediately)
-        # Note: gcloud might not be in PATH yet for System account, try absolute path if needed, usually it works if installed in image
         & gcloud auth activate-service-account --key-file=$KeyPath --quiet
-        Write-Log "gcloud authenticated via service account."
+        Write-Log "Google Auth configured."
     } else {
         Write-Log "WARN: No google-key-json found in metadata."
     }
 } catch { Write-Log "ERROR Google Auth Setup: $_" }
 
 # ============================================
-# 1. OpenSSH Installation & Config
+# 1. OpenSSH Installation & Config (FIXED FOR ADMINS)
 # ============================================
 try {
     Write-Log "Installing OpenSSH Server..."
@@ -86,11 +76,19 @@ try {
     $cap = Get-WindowsCapability -Online -Name $capName -ErrorAction SilentlyContinue
     if ($cap.State -ne 'Installed') { Add-WindowsCapability -Online -Name $capName -ErrorAction Stop | Out-Null }
 
-    Set-Service -Name sshd -StartupType Automatic
-    Start-Service sshd
-    netsh advfirewall firewall add rule name="OpenSSH Server (sshd)" dir=in action=allow protocol=TCP localport=22 | Out-Null
+    # Остановим службу перед настройкой
+    Stop-Service sshd -ErrorAction SilentlyContinue 
 
-    Write-Log "Configuring SSH Keys for user $SshUser..."
+    Write-Log "Configuring SSH User $SshUser..."
+    
+    # 1.1 Гарантируем создание пользователя (если его нет)
+    if (-not (Get-LocalUser -Name $SshUser -ErrorAction SilentlyContinue)) {
+        Write-Log "Creating user $SshUser..."
+        $p = ConvertTo-SecureString "P@ssw0rdTemp123!" -AsPlainText -Force
+        New-LocalUser -Name $SshUser -Password $p -Description "Created by Startup Script" -PasswordNeverExpires | Out-Null
+        Add-LocalGroupMember -Group "Administrators" -Member $SshUser
+    }
+
     $UserDir = "C:\Users\$SshUser"
     $SshDir  = "$UserDir\.ssh"
     $AuthKey = "$SshDir\authorized_keys"
@@ -102,6 +100,7 @@ try {
         $UserPublicKey = $UserPublicKey.Trim()
         Set-Content -Path $AuthKey -Value $UserPublicKey -Encoding Ascii -Force
         
+        # 1.2 Настройка прав (ACL) - Критично
         $acl = Get-Acl $SshDir
         $acl.SetAccessRuleProtection($true, $false)
         $acl.Access | ForEach-Object { $acl.RemoveAccessRule($_) }
@@ -117,25 +116,46 @@ try {
         Set-Acl -Path $AuthKey -AclObject $acl
     }
 
+    # 1.3 Настройка sshd_config (Исправление проблемы с паролем для админов)
     $ConfigPath = "C:\ProgramData\ssh\sshd_config"
     if (Test-Path $ConfigPath) {
         $conf = Get-Content $ConfigPath -Raw
+        
+        # Комментируем проблемные строки по умолчанию
         $conf = $conf -replace 'Match Group administrators', '# Match Group administrators'
         $conf = $conf -replace 'AuthorizedKeysFile __PROGRAMDATA__', '# AuthorizedKeysFile __PROGRAMDATA__'
-        $conf | Set-Content $ConfigPath -Encoding UTF8
-        Restart-Service sshd -Force
+        
+        # Добавляем явные настройки
+        $extraSettings = @"
+        
+# --- Script Overrides ---
+PubkeyAuthentication yes
+PasswordAuthentication no
+StrictModes no
+AuthorizedKeysFile .ssh/authorized_keys
+"@
+        $finalConf = "$conf`n$extraSettings"
+        $finalConf | Set-Content $ConfigPath -Encoding UTF8
     }
+
+    Set-Service -Name sshd -StartupType Automatic
+    Start-Service sshd
+    netsh advfirewall firewall add rule name="OpenSSH Server (sshd)" dir=in action=allow protocol=TCP localport=22 | Out-Null
+
 } catch { Write-Log "WARN SSH Setup: $_" }
 
 # ============================================
-# 2. Install GitHub Desktop
+# 2. Install GitHub Desktop (MSI Manual)
 # ============================================
 try {
-    Write-Log "Installing GitHub Desktop..."
+    Write-Log "Installing GitHub Desktop (MSI)..."
     $ghUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32?format=msi"
     $ghMsi = Join-Path $InstallersDir "GitHubDesktopSetup.msi"
     (New-Object System.Net.WebClient).DownloadFile($ghUrl, $ghMsi)
+    
+    # ALLUSERS=1 ставит в Program Files (доступно всем)
     Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$ghMsi`" /qn /norestart ALLUSERS=1" -Wait
+    Write-Log "GitHub Desktop installed."
 } catch { Write-Log "ERROR GitHub Desktop: $_" }
 
 # ============================================
@@ -150,27 +170,36 @@ if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
 
 try {
     Write-Log "Installing base packages..."
-    choco install git nssm caddy vscode sql-server-management-studio nodejs-lts googlechrome -y --no-progress --limit-output
+    # Убрал github-desktop, так как ставим его выше через MSI
+    $packages = @("git", "nssm", "caddy", "vscode", "sql-server-management-studio", "nodejs-lts", "googlechrome")
+    choco install $packages -y --no-progress --limit-output
 } catch { Write-Log "ERROR Choco packages: $_" }
 
 # ============================================
-# 4. Visual Studio 2026 (v18 Stable Channel)
+# 4. Visual Studio 2022 (v17 FIXED)
 # ============================================
 try {
-    Write-Log "Downloading Visual Studio 2026 (v18)..."
-    $vsUrl  = "https://aka.ms/vs/18/Stable/vs_community.exe"
-    $vsPath = Join-Path $InstallersDir "vs_Community_2026.exe"
+    Write-Log "Downloading Visual Studio 2022 (v17)..."
+    # Ссылка изменена на корректную VS 2022
+    $vsUrl  = "https://aka.ms/vs/17/release/vs_community.exe"
+    $vsPath = Join-Path $InstallersDir "vs_community.exe"
     (New-Object System.Net.WebClient).DownloadFile($vsUrl, $vsPath)
 
-    Write-Log "Installing Visual Studio..."
-    $vsArgs = "--quiet --wait --norestart --nocache `
-    --add Microsoft.VisualStudio.Workload.NetWeb `
-    --add Microsoft.VisualStudio.Workload.ManagedDesktop `
-    --add Microsoft.VisualStudio.Workload.Azure `
-    --includeRecommended --includeOptional"
+    if ((Get-Item $vsPath).Length -gt 1000000) {
+        Write-Log "Installing Visual Studio (this takes time)..."
+        $vsArgs = "--quiet --wait --norestart --nocache `
+        --add Microsoft.VisualStudio.Workload.NetWeb `
+        --add Microsoft.VisualStudio.Workload.ManagedDesktop `
+        --add Microsoft.VisualStudio.Workload.Azure `
+        --add Microsoft.VisualStudio.Workload.Data `
+        --add Microsoft.VisualStudio.Workload.Node `
+        --includeRecommended --includeOptional"
 
-    $p = Start-Process -FilePath $vsPath -ArgumentList $vsArgs -Wait -PassThru
-    if ($p.ExitCode -ne 0) { Write-Log "WARN: VS Installer exit code: $($p.ExitCode)" }
+        $p = Start-Process -FilePath $vsPath -ArgumentList $vsArgs -Wait -PassThru
+        if ($p.ExitCode -ne 0) { Write-Log "WARN: VS Installer exit code: $($p.ExitCode)" }
+    } else {
+        Write-Log "ERROR: Downloaded VS file is too small (404 error?)."
+    }
 } catch { Write-Log "ERROR VS Install: $_" }
 
 # ============================================
@@ -237,6 +266,10 @@ try {
         $latestVS = $vsRoots | Sort-Object Path | Select-Object -Last 1
         New-Shortcut -Target $latestVS.Path -Name "Visual Studio"
     }
+
+    # GitHub Desktop MSI путь
+    $ghPath = Resolve-Path "C:\Program Files\GitHub Desktop\GitHubDesktop.exe" -ErrorAction SilentlyContinue
+    if ($ghPath) { New-Shortcut -Target $ghPath.Path -Name "GitHub Desktop" }
 } catch { Write-Log "WARN Shortcuts: $_" }
 
 # ============================================

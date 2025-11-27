@@ -68,7 +68,7 @@ try {
 } catch { Write-Log "ERROR Google Auth Setup: $_" }
 
 # ============================================
-# 1. OpenSSH Installation & Config (FIXED FOR ADMINS)
+# 1. OpenSSH Installation & Config (ADMIN FIX)
 # ============================================
 try {
     Write-Log "Installing OpenSSH Server..."
@@ -81,7 +81,7 @@ try {
 
     Write-Log "Configuring SSH User $SshUser..."
     
-    # 1.1 Гарантируем создание пользователя (если его нет)
+    # 1.1 Гарантируем создание пользователя
     if (-not (Get-LocalUser -Name $SshUser -ErrorAction SilentlyContinue)) {
         Write-Log "Creating user $SshUser..."
         $p = ConvertTo-SecureString "P@ssw0rdTemp123!" -AsPlainText -Force
@@ -96,49 +96,53 @@ try {
     if (-not (Test-Path $SshDir)) { New-Item -ItemType Directory -Force -Path $SshDir | Out-Null }
 
     $UserPublicKey = Get-Meta "instance/attributes/ssh-public-key"
+    
     if (-not [string]::IsNullOrWhiteSpace($UserPublicKey)) {
         $UserPublicKey = $UserPublicKey.Trim()
+        
+        # --- МЕСТО 1: Личная папка (для обычного входа) ---
         Set-Content -Path $AuthKey -Value $UserPublicKey -Encoding Ascii -Force
         
-        # 1.2 Настройка прав (ACL) - Критично
         $acl = Get-Acl $SshDir
         $acl.SetAccessRuleProtection($true, $false)
         $acl.Access | ForEach-Object { $acl.RemoveAccessRule($_) }
-        
         $rights = [System.Security.AccessControl.FileSystemRights]::FullControl
         $type   = [System.Security.AccessControl.AccessControlType]::Allow
-        
         $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule($SshUser, $rights, $type)))
         $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule("NT AUTHORITY\SYSTEM", $rights, $type)))
         $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule("BUILTIN\Administrators", $rights, $type)))
-        
         Set-Acl -Path $SshDir -AclObject $acl
         Set-Acl -Path $AuthKey -AclObject $acl
+
+        # --- МЕСТО 2: Системная папка (ОБЯЗАТЕЛЬНО ДЛЯ АДМИНОВ) ---
+        $AdminKeyPath = "C:\ProgramData\ssh\administrators_authorized_keys"
+        Write-Log "Writing Admin Keys to $AdminKeyPath..."
+        
+        Set-Content -Path $AdminKeyPath -Value $UserPublicKey -Encoding Ascii -Force
+        
+        # Критически важно настроить права на этот файл, иначе SSH его проигнорирует
+        # Используем icacls для надежности (права: только SYSTEM и Administrators)
+        $cmd = "icacls ""$AdminKeyPath"" /inheritance:r /grant ""Administrators:F"" /grant ""SYSTEM:F"""
+        Invoke-Expression $cmd | Out-Null
     }
 
-    # 1.3 Настройка sshd_config (Исправление проблемы с паролем для админов)
+    # 1.4 Настройка sshd_config (на всякий случай включаем все методы)
     $ConfigPath = "C:\ProgramData\ssh\sshd_config"
     if (Test-Path $ConfigPath) {
         $conf = Get-Content $ConfigPath -Raw
-        
-        # Комментируем проблемные строки по умолчанию
-        $conf = $conf -replace 'Match Group administrators', '# Match Group administrators'
-        $conf = $conf -replace 'AuthorizedKeysFile __PROGRAMDATA__', '# AuthorizedKeysFile __PROGRAMDATA__'
-        
-        # Добавляем явные настройки
-        $extraSettings = @"
-        
+        # Добавляем явные настройки, если их там нет
+        if ($conf -notmatch "PasswordAuthentication no") {
+            $extraSettings = @"
+            
 # --- Script Overrides ---
 PubkeyAuthentication yes
 PasswordAuthentication no
 StrictModes no
-AuthorizedKeysFile .ssh/authorized_keys
 "@
-        $finalConf = "$conf`n$extraSettings"
-        $finalConf | Set-Content $ConfigPath -Encoding UTF8
+            Add-Content -Path $ConfigPath -Value $extraSettings
+        }
     }
 
-    Set-Service -Name sshd -StartupType Automatic
     Start-Service sshd
     netsh advfirewall firewall add rule name="OpenSSH Server (sshd)" dir=in action=allow protocol=TCP localport=22 | Out-Null
 

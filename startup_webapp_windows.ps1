@@ -1,6 +1,6 @@
 # ==============================================================================
 # startup_webapp_windows.ps1
-# FINAL: VS v18 + SQL 2022 + OpenSSH + Google Auth
+# FINAL: VS v18 + SQL 2022 + OpenSSH + Google Auth + GitHub Desktop (Choco)
 # ==============================================================================
 
 $ErrorActionPreference = 'Stop'
@@ -50,12 +50,12 @@ Write-Log "STAGE 1 START. Domain=$Domain"
 try { New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -PropertyType DWord -Value 1 -Force | Out-Null } catch {}
 
 # ============================================
-# 0. SETUP GOOGLE AUTH (NEW !!!)
+# 0. SETUP GOOGLE AUTH
 # ============================================
 try {
     Write-Log "Setting up Google Cloud Credentials..."
     
-    # 1. Read key from Metadata (injected by deploy script)
+    # 1. Read key from Metadata
     $KeyContent = Get-Meta "instance/attributes/google-key-json"
     $KeyPath = "C:\webapp\google_key.json"
     
@@ -64,12 +64,11 @@ try {
         Set-Content -Path $KeyPath -Value $KeyContent -Encoding UTF8 -Force
         Write-Log "Google Key saved to $KeyPath"
 
-        # 3. Set System Environment Variable (Persists after reboot)
+        # 3. Set System Environment Variable (Persists after reboot for ALL users including mykola)
         [Environment]::SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", $KeyPath, "Machine")
         Write-Log "Environment variable GOOGLE_APPLICATION_CREDENTIALS set."
 
-        # 4. Authenticate gcloud (so command line works immediately)
-        # Note: gcloud might not be in PATH yet for System account, try absolute path if needed, usually it works if installed in image
+        # 4. Authenticate gcloud (SYSTEM context)
         & gcloud auth activate-service-account --key-file=$KeyPath --quiet
         Write-Log "gcloud authenticated via service account."
     } else {
@@ -128,18 +127,7 @@ try {
 } catch { Write-Log "WARN SSH Setup: $_" }
 
 # ============================================
-# 2. Install GitHub Desktop
-# ============================================
-try {
-    Write-Log "Installing GitHub Desktop..."
-    $ghUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32?format=msi"
-    $ghMsi = Join-Path $InstallersDir "GitHubDesktopSetup.msi"
-    (New-Object System.Net.WebClient).DownloadFile($ghUrl, $ghMsi)
-    Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$ghMsi`" /qn /norestart ALLUSERS=1" -Wait
-} catch { Write-Log "ERROR GitHub Desktop: $_" }
-
-# ============================================
-# 3. Chocolatey & Base Tools
+# 3. Chocolatey & Tools (Inc. GitHub Desktop)
 # ============================================
 if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
     Write-Log "Installing Chocolatey..."
@@ -149,8 +137,22 @@ if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
 }
 
 try {
-    Write-Log "Installing base packages..."
-    choco install git nssm caddy vscode sql-server-management-studio nodejs-lts googlechrome -y --no-progress --limit-output
+    Write-Log "Installing packages via Chocolatey..."
+    # Добавлен github-desktop. 
+    # Пакет github-desktop использует MSI установщик, который корректно ставится в Program Files 
+    # при запуске от SYSTEM, что делает его доступным для mykola.
+    $packages = @(
+        "git",
+        "nssm",
+        "caddy",
+        "vscode",
+        "sql-server-management-studio",
+        "nodejs-lts",
+        "googlechrome",
+        "github-desktop" 
+    )
+    
+    choco install $packages -y --no-progress --limit-output
 } catch { Write-Log "ERROR Choco packages: $_" }
 
 # ============================================
@@ -206,12 +208,13 @@ Restart-Computer -Force
 } catch { Write-Log "ERROR Stage 2 Setup: $_" }
 
 # ============================================
-# 7. Shortcuts
+# 7. Shortcuts (For ALL Users)
 # ============================================
 function New-Shortcut {
     param([string]$Target, [string]$Name)
     try {
         if (-not (Test-Path $Target)) { return }
+        # Используем Public Desktop, чтобы ярлыки появились у mykola
         $desktop = Join-Path $Env:Public "Desktop"
         $shell   = New-Object -ComObject WScript.Shell
         $lnk     = $shell.CreateShortcut((Join-Path $desktop ($Name + ".lnk")))
@@ -224,6 +227,7 @@ try {
     Write-Log "Creating Shortcuts..."
     if ($e = (Get-Command "Code.exe" -ErrorAction SilentlyContinue).Source) { New-Shortcut -Target $e -Name "Visual Studio Code" }
     
+    # SQL Management Studio
     $paths64 = Resolve-Path "C:\Program Files\Microsoft SQL Server Management Studio*\Release\Common7\IDE\Ssms.exe" -ErrorAction SilentlyContinue
     $paths86 = Resolve-Path "C:\Program Files (x86)\Microsoft SQL Server Management Studio*\Common7\IDE\Ssms.exe" -ErrorAction SilentlyContinue
     $allSSMS = @($paths64, $paths86) | Where-Object { $_ } 
@@ -232,10 +236,18 @@ try {
         New-Shortcut -Target $latestSSMS.Path -Name "SQL Server Management Studio"
     }
 
+    # Visual Studio
     $vsRoots = Resolve-Path "$env:ProgramFiles\Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe" -ErrorAction SilentlyContinue
     if ($vsRoots) {
         $latestVS = $vsRoots | Sort-Object Path | Select-Object -Last 1
         New-Shortcut -Target $latestVS.Path -Name "Visual Studio"
+    }
+
+    # GitHub Desktop
+    # При установке через choco как SYSTEM он падает в Program Files
+    $ghPath = Resolve-Path "C:\Program Files\GitHub Desktop\GitHubDesktop.exe" -ErrorAction SilentlyContinue
+    if ($ghPath) {
+        New-Shortcut -Target $ghPath.Path -Name "GitHub Desktop"
     }
 } catch { Write-Log "WARN Shortcuts: $_" }
 

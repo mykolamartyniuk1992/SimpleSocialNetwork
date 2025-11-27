@@ -1,16 +1,22 @@
 # ==============================================================================
 # deploy.ps1
-# Full Pipeline: Build -> Config -> Deploy -> Update Service
+# Build -> Flexible Angular Config -> Stage -> Deploy
 # ==============================================================================
 
 $ErrorActionPreference = 'Stop'
 
-# --- НАСТРОЙКИ ---
+# --- НАСТРОЙКИ СЕРВЕРА ---
 $ServerIP   = "34.172.236.103"
 $ServerUser = "mykola"
 $DomainName = "simplesocialnetwork.mykolamartyniuk1992.dev"
 $AdminEmail = "mykola.martyniuk.1992@gmail.com"
 
+# --- НАСТРОЙКИ ПРИЛОЖЕНИЯ ---
+# Оставьте пустым (""), если API и Сайт на одном сервере (через Caddy proxy)
+# Укажите полный URL ("https://api.example.com"), если API на другом сервере
+$ApiUrl = "" 
+
+# --- ПУТИ ---
 $RepoRoot   = Get-Location
 $ApiFolder  = "SimpleSocialNetwork.Api"
 $WebFolder  = "SimpleSocialNetwork.Angular"
@@ -21,7 +27,7 @@ $StagingDir = Join-Path $RepoRoot ".deploy_staging"
 $ZipFile    = Join-Path $RepoRoot "deploy_package.zip"
 $RemoteScriptFile = Join-Path $StagingDir "remote_exec.ps1"
 
-Write-Host "🚀 STARTING DEPLOYMENT to $ServerIP ($DomainName)..." -ForegroundColor Green
+Write-Host "🚀 STARTING DEPLOYMENT to $ServerIP..." -ForegroundColor Green
 
 # --- 1. ОЧИСТКА ---
 if (Test-Path $StagingDir) { Remove-Item $StagingDir -Recurse -Force }
@@ -54,17 +60,49 @@ Get-ChildItem "$ApiStagePath/appsettings.*.json" | Where-Object { $_.Name -ne "a
 $AppSettingsFile = "$ApiStagePath/appsettings.json"
 $json = Get-Content $AppSettingsFile -Raw | ConvertFrom-Json
 $json.ConnectionStrings.Default = "Server=localhost;Database=SimpleSocialNetwork;Trusted_Connection=True;TrustServerCertificate=True;"
-$json.AllowedOrigins = @("https://$DomainName")
+# Разрешаем запросы с: Самого домена, Локалхоста (для Caddy), и если задан внешний API - то и с него
+$corsOrigins = @("https://$DomainName", "http://localhost:8080", "http://127.0.0.1:8080")
+if ($ApiUrl -ne "") { $corsOrigins += $ApiUrl }
+$json.AllowedOrigins = $corsOrigins
+
 if ($json.Kestrel) { $json.PSObject.Properties.Remove('Kestrel') }
 $json | ConvertTo-Json -Depth 10 | Set-Content $AppSettingsFile
 
 # FIX: Создаем пустую папку wwwroot внутри API
 New-Item -ItemType Directory -Path "$ApiStagePath/wwwroot" -Force | Out-Null
 
-# --- 4. СБОРКА ANGULAR ---
+# --- 4. СБОРКА ANGULAR (С ГИБКИМ URL) ---
 Write-Host "🎨 Building Angular..." -ForegroundColor Cyan
 Push-Location (Join-Path $RepoRoot $WebFolder)
+
+# !!! SMART PATCH: Заменяем localhost на $ApiUrl (или относительный путь) !!!
+Write-Host "   -> Configuring API URL for Production..." -ForegroundColor DarkGray
+
+# Если $ApiUrl пустой, используем HTTPS домен для абсолютной корректности, 
+# либо пустую строку для относительного пути. 
+# Для Caddy лучше всего работает относительный путь "" (пустая строка), 
+# но Angular иногда требует полный URL.
+# Используем безопасный вариант: если ApiUrl не задан, подставляем текущий домен + /api
+$TargetApiUrl = if ($ApiUrl) { $ApiUrl } else { "https://$DomainName" }
+
+$EnvFiles = Get-ChildItem -Path "src/environments" -Filter "*.ts" -Recurse
+foreach ($file in $EnvFiles) {
+    $content = Get-Content $file.FullName -Raw
+    if ($content -match "localhost:5003") {
+        # Заменяем локальный адрес на целевой
+        $newContent = $content -replace "http://localhost:5003", $TargetApiUrl
+        Set-Content -Path $file.FullName -Value $newContent -Encoding UTF8
+        Write-Host "      Patched $($file.Name) -> API: $TargetApiUrl" -ForegroundColor Green
+    }
+}
+
 npx ng build --configuration=production
+
+# Откат изменений в файлах environment (чтобы git не считал их измененными)
+# (Если вы хотите оставить файлы измененными, закомментируйте блок ниже)
+Write-Host "   -> Reverting environment files (git checkout)..." -ForegroundColor DarkGray
+git checkout src/environments/*.ts 2>$null
+
 $DistRoot = Join-Path (Get-Location) "dist"
 if (Test-Path "$DistRoot/$WebFolder/browser") { $DistSource = "$DistRoot/$WebFolder/browser" }
 elseif (Test-Path "$DistRoot/browser") { $DistSource = "$DistRoot/browser" }
@@ -128,7 +166,6 @@ $DomainName {
     Write-Host "   [Remote] Service Config..."
     $AppExePath = "C:\webapp\api\$ExeName"
     
-    # IDEMPOTENT SERVICE INSTALL
     if (Get-Service $ServiceName -ErrorAction SilentlyContinue) {
         Write-Host "   [Remote] Updating existing service..."
         & $nssm set $ServiceName Application "$AppExePath" 2>$null

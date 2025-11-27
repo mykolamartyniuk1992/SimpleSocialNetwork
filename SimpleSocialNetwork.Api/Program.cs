@@ -56,8 +56,6 @@ builder.Services.AddCors(options =>
 // ОТКЛЮЧАЕМ автоматическую 400 ошибку
 builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
 {
-    // Это позволит запросу с пустыми полями зайти в метод контроллера,
-    // где сработают ваши проверки (if string.IsNullOrWhiteSpace ...)
     options.SuppressModelStateInvalidFilter = true;
 });
 
@@ -67,14 +65,14 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.ForwardedHeaders =
         ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
         
-    // !!! ВАЖНО: Доверяем всем прокси (так как Caddy стоит локально и порт 8080 закрыт фаерволом)
+    // !!! ВАЖНО: Доверяем всем прокси
     options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
 });
 
 var app = builder.Build();
 
-// 1. MUST BE FIRST: Process proxy headers
+// 1. MUST BE FIRST
 app.UseForwardedHeaders();
 
 var isLocal = app.Environment.EnvironmentName.Equals(
@@ -85,9 +83,7 @@ if (!app.Environment.IsDevelopment() && !isLocal)
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
-    
-    // ОТКЛЮЧАЕМ РЕДИРЕКТ ВНУТРИ .NET. 
-    // Эту работу уже делает Caddy снаружи.
+    // Redirect отключен верно, не включайте его
     // app.UseHttpsRedirection();
 }
 
@@ -95,7 +91,9 @@ app.UseRouting();
 app.UseCors("AllowAngular");
 app.UseStaticFiles();
 
-// Маршруты MVC (если нужны контроллеры)
+app.MapControllers();
+
+// Маршруты MVC (для Home контроллера и т.д.)
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");

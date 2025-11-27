@@ -1,6 +1,6 @@
 # ==============================================================================
 # startup_webapp_windows.ps1
-# Bleeding Edge: Visual Studio v18 (Dynamic Path) + SQL 2022 + Tools
+# FINAL VERSION: Visual Studio v18 + SQL 2022 + Dynamic Shortcuts
 # ==============================================================================
 
 $ErrorActionPreference = 'Stop'
@@ -85,7 +85,6 @@ if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
 
 try {
     Write-Log "Installing base packages..."
-    # Пропускаем SDK, они придут с VS
     choco install git nssm caddy vscode sql-server-management-studio nodejs-lts googlechrome -y --no-progress --limit-output
     Write-Log "Chocolatey packages installed."
 } catch { Write-Log "ERROR Choco packages: $_" }
@@ -196,19 +195,19 @@ try {
     # VS Code
     if ($e = (Get-Command "Code.exe" -ErrorAction SilentlyContinue).Source) { New-Shortcut -Target $e -Name "Visual Studio Code" }
     
-    # 1. SSMS (Ищем в Program Files (x86), так как это 32-битное приложение оболочки)
-    $ssmsPaths = Resolve-Path "C:\Program Files (x86)\Microsoft SQL Server Management Studio*\Common7\IDE\Ssms.exe" -ErrorAction SilentlyContinue
-    if ($ssmsPaths) {
-        $latestSSMS = $ssmsPaths | Sort-Object Path | Select-Object -Last 1
+    # 1. SSMS (Ищем в Program Files И Program Files (x86) - v22 ставится в x64)
+    $paths64 = Resolve-Path "C:\Program Files\Microsoft SQL Server Management Studio*\Release\Common7\IDE\Ssms.exe" -ErrorAction SilentlyContinue
+    $paths86 = Resolve-Path "C:\Program Files (x86)\Microsoft SQL Server Management Studio*\Common7\IDE\Ssms.exe" -ErrorAction SilentlyContinue
+    $allSSMS = @($paths64, $paths86) | Where-Object { $_ } # Объединяем и фильтруем nulls
+    
+    if ($allSSMS.Count -gt 0) {
+        $latestSSMS = $allSSMS | Sort-Object Path | Select-Object -Last 1
         New-Shortcut -Target $latestSSMS.Path -Name "SQL Server Management Studio"
     }
 
     # 2. VISUAL STUDIO (Ищем в Program Files, любая версия)
-    # Ищем в стандартном пути: C:\Program Files\Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe
-    # Это найдет и '18\Community', и '2022\Preview', и любой другой вариант.
     $vsRoots = Resolve-Path "$env:ProgramFiles\Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe" -ErrorAction SilentlyContinue
     if ($vsRoots) {
-        # Берем последний найденный (обычно самая свежая версия)
         $latestVS = $vsRoots | Sort-Object Path | Select-Object -Last 1
         Write-Log "Found Visual Studio at: $latestVS"
         New-Shortcut -Target $latestVS.Path -Name "Visual Studio"

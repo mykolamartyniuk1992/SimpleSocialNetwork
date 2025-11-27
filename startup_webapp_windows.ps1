@@ -1,339 +1,246 @@
-# =============================================
+# ==============================================================================
 # startup_webapp_windows.ps1
-# - HTTPS-first on Caddy
-# - ACME-safe: staging while DNS != external IP
-# - NSSM service for Caddy
-# - No here-strings inside here-strings (no parser errors)
-# =============================================
+# Bleeding Edge: Visual Studio v18 (Dynamic Path) + SQL 2022 + Tools
+# ==============================================================================
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference    = 'SilentlyContinue'
 
-# ---------- helpers ----------
+# ==============================================================================
+# 🛑 CHECK: IF STAGE 1 DONE -> EXIT
+# ==============================================================================
+$MarkerFile = "C:\webapp\stage1_complete.txt"
+if (Test-Path $MarkerFile) {
+    Write-Host "Stage 1 marker found. Startup script finished."
+    exit 0
+}
+
+# ==============================================================================
+# 🚀 STAGE 1 START
+# ==============================================================================
+
+# --- Helpers ---
 function Get-Meta {
-  param([string]$Path)
-  try {
-    $wc = New-Object System.Net.WebClient
-    $wc.Headers['Metadata-Flavor'] = 'Google'
-    return $wc.DownloadString("http://metadata.google.internal/computeMetadata/v1/$Path")
-  } catch { return $null }
+    param([string]$Path)
+    try {
+        $wc = New-Object System.Net.WebClient
+        $wc.Headers['Metadata-Flavor'] = 'Google'
+        return $wc.DownloadString("http://metadata.google.internal/computeMetadata/v1/$Path")
+    } catch { return $null }
 }
-function Get-ExternalIP { (Get-Meta "instance/network-interfaces/0/access-configs/0/external-ip") }
-function Dns-A-Records($name) {
-  try { (Resolve-DnsName -Type A -Name $name -ErrorAction Stop | Select-Object -ExpandProperty IPAddress) }
-  catch {
-    $out = nslookup $name 2>$null
-    if ($out) { ($out -split "`r?`n" | Where-Object { $_ -match 'Address:\s+(\d+\.\d+\.\d+\.\d+)$' } | ForEach-Object { ($_ -replace '.*Address:\s+','').Trim() }) }
-  }
+
+$LogsRoot = "C:\webapp\logs"
+New-Item -Force -ItemType Directory $LogsRoot | Out-Null
+$GlobalLog = Join-Path $LogsRoot "startup.log"
+
+function Write-Log($msg) { 
+    $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    "[$ts] $msg" | Tee-Object -FilePath $GlobalLog -Append 
 }
-function Write-Log($msg) { "[{0}] {1}" -f (Get-Date -Format s), $msg | Add-Content $global:logMain }
 
-# ---------- metadata ----------
-$Domain = Get-Meta "instance/attributes/domain"; if (-not $Domain) { $Domain = "webapp-windows.mykolamartyniuk1992.dev" }
-$Email  = Get-Meta "instance/attributes/email";  if (-not $Email)  { $Email  = "mykola.martyniuk.1992@gmail.com" }
+# --- Config ---
+$Domain = Get-Meta "instance/attributes/domain"; if (-not $Domain) { $Domain = "localhost" }
+$Email  = Get-Meta "instance/attributes/email";  if (-not $Email)  { $Email  = "admin@example.com" }
+$InstallersDir = "C:\Installers"
+$SshUser = "mykola"
 
-# ---------- paths / logs ----------
-$AppRoot   = "C:\webapp"
-$WwwRoot   = "C:\webapp\wwwroot"
-$LogsRoot  = "C:\webapp\logs"
-$WorkDir   = "C:\webapp"
-$Caddyfile = "C:\webapp\Caddyfile"
-$Kestrel   = "http://127.0.0.1:8080"
+New-Item -Force -ItemType Directory "C:\webapp\wwwroot", $InstallersDir | Out-Null
+Write-Log "STAGE 1 START. Domain=$Domain"
 
-New-Item -Force -ItemType Directory $AppRoot,$WwwRoot,$LogsRoot | Out-Null
-$global:logMain = Join-Path $LogsRoot "startup.log"
-Write-Log "startup begin; domain=$Domain; email=$Email"
-
-# ---------- enable long paths ----------
+# --- Fix Long Paths ---
 try {
-  New-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Force | Out-Null
-  New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -PropertyType DWord -Value 1 -Force | Out-Null
-  Write-Log "LongPathsEnabled=1"
-} catch { Write-Log "WARN LongPathsEnabled: $_" }
+    New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -PropertyType DWord -Value 1 -Force | Out-Null
+} catch {}
 
-# ---------- chocolatey ----------
+# ============================================
+# 1. OpenSSH Fix (System Profile Temp)
+# ============================================
+if (-not (Test-Path "C:\Windows\System32\config\systemprofile\AppData\Local\Temp")) {
+    Write-Log "Fixing OpenSSH Temp folder permissions..."
+    New-Item -Path "C:\Windows\System32\config\systemprofile\AppData\Local\Temp" -ItemType Directory -Force | Out-Null
+}
+
+# ============================================
+# 2. Install GitHub Desktop
+# ============================================
+try {
+    Write-Log "Installing GitHub Desktop..."
+    $ghUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32?format=msi"
+    $ghMsi = Join-Path $InstallersDir "GitHubDesktopSetup.msi"
+    (New-Object System.Net.WebClient).DownloadFile($ghUrl, $ghMsi)
+    
+    Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$ghMsi`" /qn /norestart ALLUSERS=1" -Wait
+    Write-Log "GitHub Desktop installed."
+} catch { Write-Log "ERROR GitHub Desktop: $_" }
+
+# ============================================
+# 3. Chocolatey & Base Tools
+# ============================================
 if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
-  try {
-    Write-Log "installing chocolatey..."
+    Write-Log "Installing Chocolatey..."
     Set-ExecutionPolicy Bypass -Scope Process -Force
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-  } catch { Write-Log "ERROR choco install: $_"; throw }
-}
-$env:Path += ";C:\ProgramData\chocolatey\bin"
-$chocoArgs = "-y --no-progress --limit-output"
-$chocoOut  = Join-Path $LogsRoot "choco-stdout.log"
-$chocoErr  = Join-Path $LogsRoot "choco-stderr.log"
-
-try {
-  Write-Log "installing git nssm caddy..."
-  Start-Process choco -ArgumentList "install git nssm caddy $chocoArgs" -Wait -NoNewWindow `
-    -RedirectStandardOutput $chocoOut -RedirectStandardError $chocoErr
-  Write-Log "choco done"
-} catch { Write-Log "ERROR choco packages: $_"; throw }
-
-# ---------- placeholder static ----------
-if (-not (Test-Path (Join-Path $WwwRoot 'index.html'))) {
-@"
-<!doctype html>
-<html><head><meta charset="utf-8"><title>Webapp Windows</title></head>
-<body>
-  <h1>It works over HTTPS</h1>
-  <p>Domain: $Domain</p>
-  <p>Static files are served by Caddy from C:\webapp\wwwroot.</p>
-  <p>Non-static requests under /app are proxied to $Kestrel.</p>
-</body></html>
-"@ | Set-Content -Path (Join-Path $WwwRoot "index.html") -Encoding UTF8
 }
 
-# ---------- Windows firewall ----------
 try {
-  netsh advfirewall firewall add rule name="Webapp HTTP 80"  dir=in action=allow protocol=TCP localport=80  | Out-Null
-  netsh advfirewall firewall add rule name="Webapp HTTPS 443" dir=in action=allow protocol=TCP localport=443 | Out-Null
-  Write-Log "firewall 80/443 opened"
-} catch { Write-Log "WARN firewall: $_" }
+    Write-Log "Installing base packages..."
+    # Пропускаем SDK, они придут с VS
+    choco install git nssm caddy vscode sql-server-management-studio nodejs-lts googlechrome -y --no-progress --limit-output
+    Write-Log "Chocolatey packages installed."
+} catch { Write-Log "ERROR Choco packages: $_" }
 
-# ---------- Enable Remote Desktop (RDP) ----------
+# ============================================
+# 4. Visual Studio 2026 (v18 Stable Channel)
+# ============================================
 try {
-  # Разрешить RDP на уровне системы
-  Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' `
-                   -Name 'fDenyTSConnections' -Value 0 -Force
+    Write-Log "Downloading Visual Studio 2026 (v18)..."
+    
+    # Ссылка v18
+    $vsUrl  = "https://aka.ms/vs/18/Stable/vs_community.exe"
+    $vsPath = Join-Path $InstallersDir "vs_Community_2026.exe"
+    (New-Object System.Net.WebClient).DownloadFile($vsUrl, $vsPath)
 
-  # Включить RDP-правила в Windows Firewall
-  netsh advfirewall firewall set rule group="remote desktop" new enable=Yes | Out-Null
+    Write-Log "Installing Visual Studio... (Using default path)"
+    
+    # УБРАН --installPath. Пусть установщик сам выберет путь по умолчанию.
+    $vsArgs = "--quiet --wait --norestart --nocache `
+    --add Microsoft.VisualStudio.Workload.NetWeb `
+    --add Microsoft.VisualStudio.Workload.ManagedDesktop `
+    --add Microsoft.VisualStudio.Workload.Azure `
+    --includeRecommended --includeOptional"
 
-  Write-Log "RDP enabled (Terminal Services + firewall group 'Remote Desktop')."
+    $p = Start-Process -FilePath $vsPath -ArgumentList $vsArgs -Wait -PassThru
+    
+    if ($p.ExitCode -ne 0) { Write-Log "WARN: VS Installer exit code: $($p.ExitCode)" }
+    else { Write-Log "VS Installed Successfully." }
+} catch { Write-Log "ERROR VS Install: $_" }
+
+# ============================================
+# 5. PREPARE STAGE 2 (SQL SERVER)
+# ============================================
+try {
+    Write-Log "Preparing Stage 2 (SQL Server) Task..."
+    $Stage2Path = Join-Path $InstallersDir "install_sql_stage2.ps1"
+    
+    $Stage2Script = @'
+$ErrorActionPreference = 'Stop'
+$LogFile = 'C:\webapp\logs\stage2_sql.log'
+
+function Log($m) { "[{0}] {1}" -f (Get-Date -Format s), $m | Add-Content $LogFile }
+
+Log "STAGE 2 START: Waiting for network..."
+Start-Sleep -Seconds 30
+
+try {
+    Log "Installing SQL Server 2022..."
+    $p = "/ACTION=Install /IACCEPTSQLSERVERLICENSETERMS=True /SECURITYMODE=SQL /SAPWD=`"P@ssw0rd!ChangeMe`" /TCPENABLED=1 /SQLSYSADMINACCOUNTS=`"BUILTIN\Administrators`""
+    choco install sql-server-2022 -y --no-progress --execution-timeout=3600 --params="'$p'" | Out-String | Add-Content $LogFile
+    Log "SQL Server installed."
 } catch {
-  Write-Log "WARN enabling RDP: $_"
+    Log "ERROR installing SQL: $_"
 }
 
-# ---------- OpenSSH Server (для SSH/PowerShell 7 remoting) ----------
+Unregister-ScheduledTask -TaskName "InstallSQL" -Confirm:$false -ErrorAction SilentlyContinue
+Log "STAGE 2 COMPLETE. Rebooting."
+Start-Sleep -Seconds 5
+Restart-Computer -Force
+'@
+
+    $Stage2Script | Set-Content -Path $Stage2Path -Encoding UTF8
+
+    $Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$Stage2Path`""
+    $Trigger = New-ScheduledTaskTrigger -AtStartup
+    $Principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    Register-ScheduledTask -TaskName "InstallSQL" -Action $Action -Trigger $Trigger -Principal $Principal -Force | Out-Null
+    
+    Write-Log "Stage 2 Task Registered."
+} catch { Write-Log "ERROR Stage 2 Setup: $_" }
+
+# ============================================
+# 6. OpenSSH Config
+# ============================================
 try {
-  Write-Log "Installing/starting OpenSSH Server..."
-
-  # Установить компонент, если ещё не установлен
-  $capName = 'OpenSSH.Server~~~~0.0.1.0'
-  $cap = Get-WindowsCapability -Online -Name $capName -ErrorAction SilentlyContinue
-  if ($cap -and $cap.State -ne 'Installed') {
-    Add-WindowsCapability -Online -Name $capName -ErrorAction Stop | Out-Null
-  }
-
-  # Включить и запустить sshd
-  Set-Service sshd -StartupType Automatic -ErrorAction Stop
-  Start-Service sshd -ErrorAction Stop
-
-  # Правило firewall на порт 22
-  netsh advfirewall firewall add rule `
-    name="OpenSSH-Server-In-TCP" `
-    dir=in action=allow protocol=TCP localport=22 `
-    | Out-Null
-
-  Write-Log "OpenSSH Server is installed and running (port 22 open)."
-}
-catch {
-  Write-Log "WARN OpenSSH Server: $_"
-}
-
-# ---------- Enable PowerShell Remoting (WinRM) ----------
-try {
-    Write-Log "Enabling PowerShell remoting (WinRM)..."
-    Enable-PSRemoting -Force -SkipNetworkProfileCheck
-    Write-Log "PSRemoting enabled."
-}
-catch {
-    Write-Log "WARN Enable-PSRemoting: $_"
-}
-
-# ---------- Caddyfile builders ----------
-function New-CaddyfileProduction {
-@"
-{
-  email $Email
-}
-
-http://$Domain {
-  redir https://$Domain{uri}
-}
-
-$Domain {
-  root * "$WwwRoot"
-
-  @static {
-    file {
-      try_files {path} {path}/index.html
+    Write-Log "Configuring OpenSSH..."
+    $SshDir = "C:\Users\$SshUser\.ssh"
+    if (-not (Test-Path $SshDir)) { New-Item -ItemType Directory -Force -Path $SshDir | Out-Null }
+    
+    $UserPublicKey = Get-Meta "instance/attributes/ssh-public-key"
+    if (-not [string]::IsNullOrWhiteSpace($UserPublicKey)) {
+        $UserPublicKey.Trim() | Set-Content -Path "$SshDir\authorized_keys" -Encoding Ascii -Force
+        icacls "$SshDir\authorized_keys" /inheritance:r /grant "$($SshUser):F" /grant SYSTEM:F /grant Administrators:F | Out-Null
     }
-  }
+    
+    Set-Service -Name sshd -StartupType Automatic
+    Start-Service sshd
+    Write-Log "OpenSSH Configured."
+} catch { Write-Log "WARN SSH: $_" }
 
-  handle @static {
-    file_server
-  }
-
-  handle_path /app/* {
-    reverse_proxy $Kestrel
-  }
-
-  log {
-    output file "$LogsRoot\caddy-access.log"
-  }
-}
-"@
-}
-function New-CaddyfileStaging {
-@"
-{
-  email $Email
-  acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+# ============================================
+# 7. Shortcuts (Dynamic Search)
+# ============================================
+function New-Shortcut {
+    param([string]$Target, [string]$Name)
+    try {
+        if (-not (Test-Path $Target)) { return }
+        $desktop = Join-Path $Env:Public "Desktop"
+        $shell   = New-Object -ComObject WScript.Shell
+        $lnk     = $shell.CreateShortcut((Join-Path $desktop ($Name + ".lnk")))
+        $lnk.TargetPath = $Target
+        $lnk.Save()
+    } catch {}
 }
 
-http://$Domain {
-  redir https://$Domain{uri}
-}
+try {
+    Write-Log "Creating Shortcuts..."
+    if ($e = (Get-Command "Code.exe" -ErrorAction SilentlyContinue).Source) { New-Shortcut -Target $e -Name "Visual Studio Code" }
+    if ($e = (Get-Command "Ssms.exe" -ErrorAction SilentlyContinue).Source) { New-Shortcut -Target $e -Name "SQL Server Management Studio" }
+    
+    # ДИНАМИЧЕСКИЙ ПОИСК DEVENV.EXE
+    # Ищем в стандартном пути: C:\Program Files\Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe
+    # Это найдет и '18\Community', и '2022\Preview', и любой другой вариант.
+    $vsRoots = Resolve-Path "$env:ProgramFiles\Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe" -ErrorAction SilentlyContinue
+    
+    if ($vsRoots) {
+        # Берем последний найденный (обычно самая свежая версия)
+        $latestVS = $vsRoots | Select-Object -Last 1
+        Write-Log "Found Visual Studio at: $latestVS"
+        New-Shortcut -Target $latestVS.Path -Name "Visual Studio"
+    } else {
+        Write-Log "WARN: Could not find devenv.exe automatically."
+    }
 
+} catch { Write-Log "WARN Shortcuts: $_" }
+
+# ============================================
+# 8. Caddy Setup
+# ============================================
+try {
+    Write-Log "Configuring Caddy..."
+    $Caddyfile = "C:\webapp\Caddyfile"
+    $CaddyContent = @"
+{ email $Email }
+http://$Domain { redir https://$Domain{uri} }
 $Domain {
-  root * "$WwwRoot"
-
+  root * "C:\webapp\wwwroot"
   file_server
-
-  handle_path /app/* {
-    reverse_proxy $Kestrel
-  }
-
-  log {
-    output file "$LogsRoot\caddy-access.log"
-  }
 }
 "@
-}
+    $CaddyContent | Set-Content -Path $Caddyfile -Encoding UTF8
+    
+    $caddyExe = (Get-Command caddy.exe).Source
+    Stop-Service caddy -ErrorAction SilentlyContinue
+    & nssm install caddy $caddyExe 'run' '--config' $Caddyfile '--adapter' 'caddyfile' 2>$null
+    & nssm set caddy AppDirectory "C:\webapp" 2>$null
+    & nssm set caddy Start SERVICE_AUTO_START 2>$null
+    Start-Service caddy
+} catch { Write-Log "WARN Caddy: $_" }
 
-# ---------- DNS==IP guard (avoid ACME rate limits) ----------
-$extIP    = (Get-ExternalIP).Trim()
-$deadline = (Get-Date).AddMinutes(10)
-$dnsOK    = $false
+# ============================================
+# 🏁 FINALIZE STAGE 1
+# ============================================
+Write-Log "STAGE 1 DONE. Creating marker file and rebooting for Stage 2..."
+New-Item -Path $MarkerFile -ItemType File -Force | Out-Null
 
-Write-Log "external-ip=$extIP; checking DNS for $Domain"
-while ((Get-Date) -lt $deadline) {
-  $ips = @(Dns-A-Records $Domain) | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
-  if ($ips -and ($ips -contains $extIP)) { $dnsOK = $true; break }
-  Write-Log "DNS not ready yet. A=$($ips -join ',') expected=$extIP; sleep 15s"
-  Start-Sleep -Seconds 15
-}
-
-# ---------- select config and validate ----------
-if ($dnsOK) {
-  Write-Log "DNS OK; writing PRODUCTION Caddyfile"
-  New-CaddyfileProduction | Set-Content -Path $Caddyfile -Encoding UTF8
-} else {
-  Write-Log "DNS not OK; writing STAGING Caddyfile"
-  New-CaddyfileStaging | Set-Content -Path $Caddyfile -Encoding UTF8
-}
-
-$caddyExe = (Get-Command caddy.exe -ErrorAction Stop).Source
-$valOut   = Join-Path $LogsRoot 'caddy-validate.out.log'
-$valErr   = Join-Path $LogsRoot 'caddy-validate.err.log'
-try {
-  Write-Log "validating Caddyfile..."
-  Start-Process $caddyExe -ArgumentList "validate --config `"$Caddyfile`" --adapter caddyfile" `
-    -Wait -NoNewWindow -RedirectStandardOutput $valOut -RedirectStandardError $valErr
-  Write-Log "Caddyfile validate OK"
-} catch {
-  Write-Log "ERROR Caddyfile validate: $_ (see $valOut / $valErr)"
-  throw
-}
-
-# ---------- Install/run Caddy via NSSM ----------
-$nssmLog = Join-Path $LogsRoot 'nssm-install.log'
-try {
-  Write-Log "recreating caddy service via NSSM"
-  Stop-Service caddy -ErrorAction SilentlyContinue
-  sc.exe delete caddy | Out-Null
-  Start-Sleep -Seconds 1
-
-  & nssm install caddy $caddyExe 'run' '--config' $Caddyfile '--adapter' 'caddyfile' *> $nssmLog
-  & nssm set caddy AppDirectory $WorkDir
-  & nssm set caddy Start SERVICE_AUTO_START
-  & nssm set caddy AppStdout "$LogsRoot\caddy-service.out.log"
-  & nssm set caddy AppStderr "$LogsRoot\caddy-service.err.log"
-  & nssm set caddy AppThrottle 1500
-  & nssm set caddy AppStopMethodConsole 1500
-  & nssm set caddy AppStopMethodWindow 1500
-  & nssm set caddy AppStopMethodThreads 1500
-  & nssm set caddy AppExit Default Restart
-
-  Start-Service caddy
-  Write-Log "caddy service started"
-} catch {
-  Write-Log "ERROR caddy service: $_ (see $nssmLog and caddy-service.*.log)"
-  throw
-}
-
-# ---------- auto-switch STAGING -> PRODUCTION (without here-string!) ----------
-if (-not $dnsOK) {
-  $switchScript = "C:\webapp\switch-caddy-to-prod.ps1"
-
-  $L = @()
-  $L += '$ErrorActionPreference = ''Stop'''
-  $L += 'function Get-Meta { param([string]$Path) try { $wc = New-Object System.Net.WebClient; $wc.Headers[''Metadata-Flavor'']=''Google''; return $wc.DownloadString(''http://metadata.google.internal/computeMetadata/v1/'' + $Path) } catch { return $null } }'
-  $L += 'function Dns-A-Records($name){ try{ (Resolve-DnsName -Type A -Name $name -ErrorAction Stop | Select-Object -ExpandProperty IPAddress) } catch { $out = nslookup $name 2>$null; if ($out){ ($out -split "`r?`n" | ? { $_ -match ''Address:\s+(\d+\.\d+\.\d+\.\d+)$'' } | % { ($_ -replace ''.*Address:\s+'''','''').Trim() }) } }'
-
-  $L += ("`$Domain    = '{0}'" -f $Domain)
-  $L += ("`$Email     = '{0}'" -f $Email)
-  $L += ("`$Kestrel   = '{0}'" -f $Kestrel)
-  $L += ("`$LogsRoot  = '{0}'" -f $LogsRoot)
-  $L += ("`$Caddyfile = '{0}'" -f $Caddyfile)
-
-  $L += '$extIP = (Get-Meta ''instance/network-interfaces/0/access-configs/0/external-ip'').Trim()'
-  $L += '$ips  = @(Dns-A-Records $Domain)'
-  $L += 'if ($ips -and ($ips -contains $extIP)) {'
-
-  $L += '$c = @()'
-  $L += '$c += ''{'''
-  $L += '$c += ''  email '' + $Email'
-  $L += '$c += ''}'''
-  $L += '$c += '''''
-  $L += '$c += ''http://'' + $Domain + '' {'''
-  $L += '$c += ''  redir https://'' + $Domain + ''{uri}'''
-  $L += '$c += ''}'''
-  $L += '$c += '''''
-  $L += '$c += $Domain + '' {'''
-  $L += '$c += ''  root * "C:\webapp\wwwroot"'''
-  $L += '$c += '''''
-  $L += '$c += ''  @static {'''
-  $L += '$c += ''    file {'''
-  $L += '$c += ''      try_files {path} {path}/index.html'''
-  $L += '$c += ''    }'''
-  $L += '$c += ''  }'''
-  $L += '$c += '''''
-  $L += '$c += ''  handle @static {'''
-  $L += '$c += ''    file_server'''
-  $L += '$c += ''  }'''
-  $L += '$c += '''''
-  $L += '$c += ''  handle_path /app/* {'''
-  $L += '$c += ''    reverse_proxy '' + $Kestrel'
-  $L += '$c += ''  }'''
-  $L += '$c += '''''
-  $L += '$c += ''  log {'''
-  $L += '$c += ''    output file "'' + $LogsRoot + ''\caddy-access.log"'''
-  $L += '$c += ''  }'''
-  $L += '$c += ''}'''
-
-  $L += '$c -join "`r`n" | Set-Content -Path $Caddyfile -Encoding UTF8'
-  $L += '& (Get-Command caddy.exe).Source reload --config "$Caddyfile" --adapter caddyfile'
-  $L += '}'
-
-  $L -join "`r`n" | Set-Content -Path $switchScript -Encoding UTF8
-
-  $tsName = 'CaddySwitchToProduction'
-  $time   = (Get-Date).AddMinutes(2).ToString('HH:mm')
-  schtasks /Create /TN $tsName /TR "powershell -ExecutionPolicy Bypass -File `"$switchScript`"" /SC ONCE /ST $time /RL HIGHEST /F | Out-Null
-  schtasks /Run /TN $tsName | Out-Null
-  Write-Log "scheduled one-shot DNS re-check to switch Caddy to production"
-}
-
-# ---------- health check ----------
-try {
-  Start-Sleep -Seconds 3
-  Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1" -Headers @{ Host = $Domain } -TimeoutSec 5 -MaximumRedirection 0 | Out-Null
-  Write-Log "local HTTP ok (expected redirect to HTTPS)"
-} catch { Write-Log "WARN local HTTP: $_" }
-
-Write-Log "startup completed"
+Start-Sleep -Seconds 5
+Restart-Computer -Force

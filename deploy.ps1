@@ -1,20 +1,20 @@
 # ==============================================================================
 # deploy.ps1
-# Build -> Stage -> Zip -> Deploy (Fixed Base64 Injection)
+# Build -> Stage -> Zip -> Deploy (Idempotent Service Install)
 # ==============================================================================
 
 $ErrorActionPreference = 'Stop'
 
 # --- НАСТРОЙКИ ---
 $ServerIP   = "34.172.236.103"
-$ServerUser = "mykola" # SSH user
+$ServerUser = "mykola" 
 
 $RepoRoot   = Get-Location
 $ApiFolder  = "SimpleSocialNetwork.Api"
 $WebFolder  = "SimpleSocialNetwork.Angular"
-$ApiExeName = "SimpleSocialNetwork.exe" # Имя исполняемого файла API
+$ApiExeName = "SimpleSocialNetwork.exe" 
 
-# Временная папка для подготовки архива
+# Временная папка
 $StagingDir = Join-Path $RepoRoot ".deploy_staging"
 $ZipFile    = Join-Path $RepoRoot "deploy_package.zip"
 
@@ -52,10 +52,8 @@ Pop-Location
 Write-Host "⚙️ Configuring Staging API..." -ForegroundColor Yellow
 $ApiStagePath = "$StagingDir/api"
 
-# Чистка конфигов
 Get-ChildItem "$ApiStagePath/appsettings.*.json" | Where-Object { $_.Name -ne "appsettings.json" } | Remove-Item -Force
 
-# Патч JSON
 $AppSettingsFile = "$ApiStagePath/appsettings.json"
 $json = Get-Content $AppSettingsFile -Raw | ConvertFrom-Json
 $json.ConnectionStrings.Default = "Server=localhost;Database=SimpleSocialNetwork;Trusted_Connection=True;TrustServerCertificate=True;"
@@ -91,15 +89,12 @@ Compress-Archive -Path "$StagingDir\*" -DestinationPath $ZipFile -CompressionLev
 # --- 6. ОТПРАВКА И ЗАПУСК ---
 Write-Host "📤 Uploading..." -ForegroundColor Yellow
 
-# Создаем папку
 ssh "$ServerUser@$ServerIP" "powershell.exe -c New-Item -ItemType Directory -Force -Path C:/webapp_temp"
-# Отправляем файл
 scp $ZipFile "${ServerUser}@${ServerIP}:C:/webapp_temp/deploy_package.zip"
 
 Write-Host "🔄 Remote Update..." -ForegroundColor Cyan
 
 # --- УДАЛЕННЫЙ СКРИПТ ---
-# Мы убрали 'param' и будем внедрять переменную $ExeName перед кодированием
 $RemoteBlock = {
     $ErrorActionPreference = 'Stop'
     $ServiceName = "SimpleSocialApp"
@@ -128,10 +123,18 @@ $RemoteBlock = {
 
     Write-Host "   [Remote] Service Config..."
     $nssm = (Get-Command nssm).Source
-    # ИСПОЛЬЗУЕМ внедренную переменную $ExeName
     $AppExePath = "C:\webapp\api\$ExeName"
     
-    & $nssm install $ServiceName "$AppExePath" 2>$null
+    # --- FIX: ПРОВЕРКА СУЩЕСТВОВАНИЯ СЕРВИСА ---
+    if (Get-Service $ServiceName -ErrorAction SilentlyContinue) {
+        Write-Host "   [Remote] Service exists. Updating config..."
+        & $nssm set $ServiceName Application "$AppExePath" 2>$null
+    } else {
+        Write-Host "   [Remote] Installing new service..."
+        & $nssm install $ServiceName "$AppExePath" 2>$null
+    }
+
+    # Общие настройки (применяются всегда)
     & $nssm set $ServiceName AppDirectory "C:\webapp\api"
     & $nssm set $ServiceName AppParameters "--urls http://0.0.0.0:8080"
     & $nssm set $ServiceName AppStdout "C:\webapp\logs\service-stdout.log"
@@ -147,14 +150,10 @@ $RemoteBlock = {
 }
 
 # --- ПОДГОТОВКА PAYLOAD ---
-# 1. Внедряем переменную $ExeName прямо в начало текста скрипта
 $ScriptWithVar = "`$ExeName = '$ApiExeName'; " + $RemoteBlock.ToString()
-
-# 2. Кодируем в Base64 (UTF-16LE, как требует PowerShell)
 $ScriptBytes = [System.Text.Encoding]::Unicode.GetBytes($ScriptWithVar)
 $ScriptEncoded = [System.Convert]::ToBase64String($ScriptBytes)
 
-# 3. Отправляем (без -args, так как переменная уже внутри кода)
 ssh "$ServerUser@$ServerIP" "powershell.exe -NonInteractive -EncodedCommand $ScriptEncoded"
 
 # --- ЛОКАЛЬНАЯ ОЧИСТКА ---

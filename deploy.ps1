@@ -3,6 +3,13 @@
 # Build -> Flexible Angular Config -> Stage -> Deploy
 # ==============================================================================
 
+# ПАРАМЕТРЫ: ProjectId теперь обязателен. Скрипт спросит его при запуске.
+param(
+    [Parameter(Mandatory=$true, HelpMessage="Введите ProjectId для EmailService (обязательно)")]
+    [ValidateNotNullOrEmpty()]
+    [string]$ProjectId
+)
+
 $ErrorActionPreference = 'Stop'
 
 # --- НАСТРОЙКИ СЕРВЕРА ---
@@ -12,8 +19,6 @@ $DomainName = "simplesocialnetwork.mykolamartyniuk1992.dev"
 $AdminEmail = "mykola.martyniuk.1992@gmail.com"
 
 # --- НАСТРОЙКИ ПРИЛОЖЕНИЯ ---
-# Оставьте пустым (""), если API и Сайт на одном сервере (через Caddy proxy)
-# Укажите полный URL ("https://api.example.com"), если API на другом сервере
 $ApiUrl = "" 
 
 # --- ПУТИ ---
@@ -28,6 +33,7 @@ $ZipFile    = Join-Path $RepoRoot "deploy_package.zip"
 $RemoteScriptFile = Join-Path $StagingDir "remote_exec.ps1"
 
 Write-Host "🚀 STARTING DEPLOYMENT to $ServerIP..." -ForegroundColor Green
+Write-Host "📧 Using ProjectId: $ProjectId" -ForegroundColor DarkGray
 
 # --- 1. ОЧИСТКА ---
 if (Test-Path $StagingDir) { Remove-Item $StagingDir -Recurse -Force }
@@ -59,37 +65,41 @@ Get-ChildItem "$ApiStagePath/appsettings.*.json" | Where-Object { $_.Name -ne "a
 
 $AppSettingsFile = "$ApiStagePath/appsettings.json"
 $json = Get-Content $AppSettingsFile -Raw | ConvertFrom-Json
+
+# 3.1 База данных
 $json.ConnectionStrings.Default = "Server=localhost;Database=SimpleSocialNetwork;Trusted_Connection=True;TrustServerCertificate=True;"
-# Разрешаем запросы с: Самого домена, Локалхоста (для Caddy), и если задан внешний API - то и с него
+
+# 3.2 CORS
 $corsOrigins = @("https://$DomainName", "http://localhost:8080", "http://127.0.0.1:8080")
 if ($ApiUrl -ne "") { $corsOrigins += $ApiUrl }
 $json.AllowedOrigins = $corsOrigins
 
+# 3.3 ВНЕДРЕНИЕ PROJECT ID (Секреты)
+# Если свойство уже есть - обновляем, если нет - добавляем
+if ($json.PSObject.Properties.Match('ProjectId').Count -gt 0) {
+    $json.ProjectId = $ProjectId
+} else {
+    $json | Add-Member -Type NoteProperty -Name "ProjectId" -Value $ProjectId -Force
+}
+
+# Очистка лишнего и сохранение
 if ($json.Kestrel) { $json.PSObject.Properties.Remove('Kestrel') }
 $json | ConvertTo-Json -Depth 10 | Set-Content $AppSettingsFile
 
-# FIX: Создаем пустую папку wwwroot внутри API
+# FIX: Создаем пустую папку wwwroot внутри API (нужна для корректной работы StaticFiles)
 New-Item -ItemType Directory -Path "$ApiStagePath/wwwroot" -Force | Out-Null
 
-# --- 4. СБОРКА ANGULAR (С ГИБКИМ URL) ---
+# --- 4. СБОРКА ANGULAR ---
 Write-Host "🎨 Building Angular..." -ForegroundColor Cyan
 Push-Location (Join-Path $RepoRoot $WebFolder)
 
-# !!! SMART PATCH: Заменяем localhost на $ApiUrl (или относительный путь) !!!
 Write-Host "   -> Configuring API URL for Production..." -ForegroundColor DarkGray
-
-# Если $ApiUrl пустой, используем HTTPS домен для абсолютной корректности, 
-# либо пустую строку для относительного пути. 
-# Для Caddy лучше всего работает относительный путь "" (пустая строка), 
-# но Angular иногда требует полный URL.
-# Используем безопасный вариант: если ApiUrl не задан, подставляем текущий домен + /api
 $TargetApiUrl = if ($ApiUrl) { $ApiUrl } else { "https://$DomainName" }
 
 $EnvFiles = Get-ChildItem -Path "src/environments" -Filter "*.ts" -Recurse
 foreach ($file in $EnvFiles) {
     $content = Get-Content $file.FullName -Raw
     if ($content -match "localhost:5003") {
-        # Заменяем локальный адрес на целевой
         $newContent = $content -replace "http://localhost:5003", $TargetApiUrl
         Set-Content -Path $file.FullName -Value $newContent -Encoding UTF8
         Write-Host "      Patched $($file.Name) -> API: $TargetApiUrl" -ForegroundColor Green
@@ -98,8 +108,7 @@ foreach ($file in $EnvFiles) {
 
 npx ng build --configuration=production
 
-# Откат изменений в файлах environment (чтобы git не считал их измененными)
-# (Если вы хотите оставить файлы измененными, закомментируйте блок ниже)
+# Откат изменений в файлах environment
 Write-Host "   -> Reverting environment files (git checkout)..." -ForegroundColor DarkGray
 git checkout src/environments/*.ts 2>$null
 
@@ -139,7 +148,7 @@ $RemoteBlock = {
     Copy-Item "C:/webapp_temp/extracted/api/*" "C:/webapp/api" -Recurse -Force
     Copy-Item "C:/webapp_temp/extracted/wwwroot/*" "C:/webapp/wwwroot" -Recurse -Force
 
-    Write-Host "   [Remote] Updating Caddy Configuration..."
+    Write-Host "   [Remote] Updating Caddy Configuration (Fixing 405 Errors)..."
     $CaddyConfig = @"
 {
     email $AdminEmail
@@ -149,17 +158,17 @@ $DomainName {
     root * "C:\webapp\wwwroot"
     encode gzip
 
-    # 1. Блок для API: перенаправляем на .NET и НЕ трогаем try_files
+    # 1. API: перенаправляем на .NET (БЕЗ try_files)
     handle /api/* {
         reverse_proxy localhost:8080
     }
 
-    # 2. Блок для SignalR
+    # 2. SignalR
     handle /hubs/* {
         reverse_proxy localhost:8080
     }
 
-    # 3. Блок для Angular (SPA): срабатывает только если это не API
+    # 3. Angular SPA: всё остальное направляем на index.html
     handle {
         try_files {path} {path}/ /index.html
         file_server

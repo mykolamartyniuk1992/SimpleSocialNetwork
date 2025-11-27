@@ -3,10 +3,9 @@
 # Build -> Flexible Angular Config -> Stage -> Deploy
 # ==============================================================================
 
-# ПАРАМЕТРЫ: ProjectId теперь обязателен. Скрипт спросит его при запуске.
+# ПАРАМЕТРЫ: Спрашивает ProjectId при запуске
 param(
-    [Parameter(Mandatory=$true, HelpMessage="Введите ProjectId для EmailService (обязательно)")]
-    [ValidateNotNullOrEmpty()]
+    [Parameter(Mandatory=$true, HelpMessage="Введите ProjectId для EmailService")]
     [string]$ProjectId
 )
 
@@ -33,7 +32,6 @@ $ZipFile    = Join-Path $RepoRoot "deploy_package.zip"
 $RemoteScriptFile = Join-Path $StagingDir "remote_exec.ps1"
 
 Write-Host "🚀 STARTING DEPLOYMENT to $ServerIP..." -ForegroundColor Green
-Write-Host "📧 Using ProjectId: $ProjectId" -ForegroundColor DarkGray
 
 # --- 1. ОЧИСТКА ---
 if (Test-Path $StagingDir) { Remove-Item $StagingDir -Recurse -Force }
@@ -74,19 +72,15 @@ $corsOrigins = @("https://$DomainName", "http://localhost:8080", "http://127.0.0
 if ($ApiUrl -ne "") { $corsOrigins += $ApiUrl }
 $json.AllowedOrigins = $corsOrigins
 
-# 3.3 ВНЕДРЕНИЕ PROJECT ID (Секреты)
-# Если свойство уже есть - обновляем, если нет - добавляем
-if ($json.PSObject.Properties.Match('ProjectId').Count -gt 0) {
-    $json.ProjectId = $ProjectId
-} else {
-    $json | Add-Member -Type NoteProperty -Name "ProjectId" -Value $ProjectId -Force
-}
+# 3.3 ВНЕДРЕНИЕ PROJECT ID (ПРЯМАЯ ЗАМЕНА)
+$json.Email.ProjectId = $ProjectId
+Write-Host "   -> Set Email.ProjectId to $ProjectId" -ForegroundColor Green
 
-# Очистка лишнего и сохранение
+# Сохранение
 if ($json.Kestrel) { $json.PSObject.Properties.Remove('Kestrel') }
 $json | ConvertTo-Json -Depth 10 | Set-Content $AppSettingsFile
 
-# FIX: Создаем пустую папку wwwroot внутри API (нужна для корректной работы StaticFiles)
+# Создаем папку wwwroot
 New-Item -ItemType Directory -Path "$ApiStagePath/wwwroot" -Force | Out-Null
 
 # --- 4. СБОРКА ANGULAR ---
@@ -108,8 +102,8 @@ foreach ($file in $EnvFiles) {
 
 npx ng build --configuration=production
 
-# Откат изменений в файлах environment
-Write-Host "   -> Reverting environment files (git checkout)..." -ForegroundColor DarkGray
+# Откат изменений
+Write-Host "   -> Reverting environment files..." -ForegroundColor DarkGray
 git checkout src/environments/*.ts 2>$null
 
 $DistRoot = Join-Path (Get-Location) "dist"
@@ -148,7 +142,7 @@ $RemoteBlock = {
     Copy-Item "C:/webapp_temp/extracted/api/*" "C:/webapp/api" -Recurse -Force
     Copy-Item "C:/webapp_temp/extracted/wwwroot/*" "C:/webapp/wwwroot" -Recurse -Force
 
-    Write-Host "   [Remote] Updating Caddy Configuration (Fixing 405 Errors)..."
+    Write-Host "   [Remote] Updating Caddy Configuration..."
     $CaddyConfig = @"
 {
     email $AdminEmail
@@ -158,17 +152,14 @@ $DomainName {
     root * "C:\webapp\wwwroot"
     encode gzip
 
-    # 1. API: перенаправляем на .NET (БЕЗ try_files)
     handle /api/* {
         reverse_proxy localhost:8080
     }
 
-    # 2. SignalR
     handle /hubs/* {
         reverse_proxy localhost:8080
     }
 
-    # 3. Angular SPA: всё остальное направляем на index.html
     handle {
         try_files {path} {path}/ /index.html
         file_server

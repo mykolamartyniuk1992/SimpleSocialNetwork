@@ -112,7 +112,7 @@ namespace SimpleSocialNetwork.Data.Migrations
                 filter: "[IsAdmin] = 1");
 
             // Create admin user with generated password
-            var adminPassword = Guid.NewGuid().ToString("N").Substring(0, 12); // Generate 12-char password
+            var adminPassword = Guid.NewGuid().ToString("N").Substring(0, 12); 
             var adminEmail = "admin@simplesocialnetwork.local";
 
             migrationBuilder.Sql($@"
@@ -129,7 +129,7 @@ namespace SimpleSocialNetwork.Data.Migrations
                 VALUES ('{testEmail}', 'TestUser', '{testPassword}', NULL, 0, 0, 1, 100, SYSUTCDATETIME())
             ");
 
-            // Output passwords to console (will be visible during migration)
+            // Output passwords to console
             Console.WriteLine("============================================");
             Console.WriteLine("ADMIN USER CREATED");
             Console.WriteLine($"Email: {adminEmail}");
@@ -148,14 +148,9 @@ namespace SimpleSocialNetwork.Data.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "likes");
-
-            migrationBuilder.DropTable(
-                name: "feed");
-
-            migrationBuilder.DropTable(
-                name: "profiles");
+            migrationBuilder.DropTable(name: "likes");
+            migrationBuilder.DropTable(name: "feed");
+            migrationBuilder.DropTable(name: "profiles");
         }
     }
 }

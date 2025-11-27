@@ -1,5 +1,4 @@
 using SimpleSocialNetwork.Api.Services;
-
 using Microsoft.EntityFrameworkCore;
 using SimpleSocialNetwork;
 using SimpleSocialNetwork.Data;
@@ -65,7 +64,6 @@ if (!app.Environment.IsDevelopment() && !isLocal)
     app.UseHsts();
     app.UseHttpsRedirection();
 }
-
 
 app.UseRouting();
 app.UseCors("AllowAngular");

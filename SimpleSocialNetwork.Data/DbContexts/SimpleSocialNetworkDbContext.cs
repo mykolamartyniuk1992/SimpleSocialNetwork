@@ -16,7 +16,8 @@ public class SimpleSocialNetworkDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Применяем конфигурации сущностей (см. ниже)
+        // Применяем конфигурации сущностей
+        // Убедитесь, что классы конфигураций (ConfigProfile и др.) существуют в проекте
         modelBuilder.ApplyConfiguration(new ConfigProfile());
         modelBuilder.ApplyConfiguration(new ConfigFeed());
         modelBuilder.ApplyConfiguration(new ConfigLike());

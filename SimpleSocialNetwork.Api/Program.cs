@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using SimpleSocialNetwork.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using SimpleSocialNetwork;
@@ -60,7 +61,17 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options 
     options.SuppressModelStateInvalidFilter = true;
 });
 
+// Tell .NET to accept headers from Caddy (X-Forwarded-Proto, X-Forwarded-For)
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
+
 var app = builder.Build();
+
+// 1. MUST BE FIRST: Process proxy headers
+app.UseForwardedHeaders();
 
 var isLocal = app.Environment.EnvironmentName.Equals(
     "Local",

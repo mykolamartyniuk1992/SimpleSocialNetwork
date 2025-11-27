@@ -148,10 +148,22 @@ $RemoteBlock = {
 $DomainName {
     root * "C:\webapp\wwwroot"
     encode gzip
-    reverse_proxy /api/* localhost:8080
-    reverse_proxy /hubs/* localhost:8080
-    try_files {path} {path}/ /index.html
-    file_server
+
+    # 1. Блок для API: перенаправляем на .NET и НЕ трогаем try_files
+    handle /api/* {
+        reverse_proxy localhost:8080
+    }
+
+    # 2. Блок для SignalR
+    handle /hubs/* {
+        reverse_proxy localhost:8080
+    }
+
+    # 3. Блок для Angular (SPA): срабатывает только если это не API
+    handle {
+        try_files {path} {path}/ /index.html
+        file_server
+    }
 }
 "@
     $CaddyConfig | Set-Content -Path "C:\webapp\Caddyfile" -Encoding UTF8

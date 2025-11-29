@@ -80,6 +80,77 @@ function Invoke-Gcloud {
   return $stdout
 }
 
+function Watch-RemoteLog {
+    param(
+        [string]$User,
+        [string]$Ip,
+        [string]$KeyPath,  # фактически не нужен, Invoke-SSH уже знает ключ
+        [string]$RemoteLogPath,
+        [string]$DoneMarker = "INSTALLATION SCRIPT COMPLETED",
+        [int]$IntervalSeconds = 10
+    )
+
+    $lastLineCount = 0     # сколько строк мы уже показали
+    $hadConnection = $false
+
+    while ($true) {
+        $timestamp = (Get-Date).ToString("HH:mm:ss")
+        $remoteCmd = "powershell -NoProfile -Command `"if (Test-Path '$RemoteLogPath') { Get-Content '$RemoteLogPath' } else { '' }`""
+
+        try {
+            $output = Invoke-SSH $User $Ip $remoteCmd
+            $exit   = $LASTEXITCODE
+        }
+        catch {
+            $output = $null
+            $exit   = 255
+        }
+
+        if ($exit -ne 0) {
+            Write-Host "[$timestamp] SSH not ready for $RemoteLogPath yet. Retrying in $IntervalSeconds seconds..." -ForegroundColor Yellow
+            Start-Sleep -Seconds $IntervalSeconds
+            continue
+        }
+
+        if (-not $hadConnection) {
+            Write-Host "[$timestamp] SSH reconnected successfully." -ForegroundColor Green
+            $hadConnection = $true
+        }
+
+        if ([string]::IsNullOrEmpty($output)) {
+            Write-Host "[$timestamp] $RemoteLogPath not created yet. Waiting..." -ForegroundColor DarkYellow
+            Start-Sleep -Seconds $IntervalSeconds
+            continue
+        }
+
+        # приводим к массиву строк
+        $lines = $output -split "`r?`n"
+
+        # если лог «схлопнулся» (перезаписан) — начинаем сначала
+        if ($lines.Length -lt $lastLineCount) {
+            Write-Host "[$timestamp] Log shrank (rotation/rewrite). Resetting cursor." -ForegroundColor DarkGray
+            $lastLineCount = 0
+        }
+
+        if ($lines.Length -gt $lastLineCount) {
+            $newLines = $lines[$lastLineCount..($lines.Length - 1)]
+            $newLines | ForEach-Object { Write-Host $_ }
+            $lastLineCount = $lines.Length
+        }
+        else {
+            Write-Host "[$timestamp] SSH OK, no new log lines yet. Next check in $IntervalSeconds sec..." -ForegroundColor DarkGray
+        }
+
+        if ($output -like "*$DoneMarker*") {
+            Write-Host "[$timestamp] Done marker '$DoneMarker' found in $RemoteLogPath." -ForegroundColor Green
+            break
+        }
+
+        Start-Sleep -Seconds $IntervalSeconds
+    }
+}
+
+
 # ---------- SSH helpers ----------
 
 # Глобальный Invoke-SSH: всегда используем один и тот же ключ и опции
@@ -571,10 +642,11 @@ if ($credsReceived) {
 
     Write-Host "`nStarting Software Installation..."
     $InstallScriptLocal = Join-Path $PSScriptRoot "install_software.ps1"
+    $InstallScriptLauncherLocal = Join-Path $PSScriptRoot "install_software_launcher.ps1"
     
     if (Test-Path $InstallScriptLocal) {
 
-        # 1) Копируем скрипт на ВМ в C:\webapp
+        # 1) Копируем скрипт install_software.ps1 на ВМ в C:\webapp
         $scpArgs = @(
             "-i", $SshPrivateKeyPath,
             "-o", "StrictHostKeyChecking=no",
@@ -584,11 +656,21 @@ if ($credsReceived) {
         )
         & scp @scpArgs
 
+        # 1) Копируем скрипт install_software_launcher.ps1 на ВМ в C:\webapp
+        $scpArgs = @(
+            "-i", $SshPrivateKeyPath,
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "ConnectTimeout=30",
+            $InstallScriptLauncherLocal,
+            "mykola@${externalIp}:C:\webapp\install_software_launcher.ps1"
+        )
+        & scp @scpArgs
+
         Write-Host "Installing VS 2026, GitHub, etc (Remote Exec)..." -ForegroundColor Yellow
 
         # 2) Запускаем install_software.ps1 в фоне (через Start-Process)
         # Одинарные кавычки с двойными внутри — ничего не трогается при передаче в ssh.
-        $remoteCmd = 'powershell -NoProfile -ExecutionPolicy Bypass -File C:\webapp\install_software.ps1'
+        $remoteCmd = 'powershell -NoProfile -ExecutionPolicy Bypass -File C:\webapp\install_software_launcher.ps1'
 
         Write-Host "DEBUG remoteCmd: $remoteCmd"  # чтобы видеть в логах, что реально шлём
 
@@ -604,38 +686,14 @@ if ($credsReceived) {
         # PHASE 1: user_install.log (до ребута)
         # =====================================================================
         Write-Host "----- user_install.log -----" -ForegroundColor Cyan
-        $lastUserLines = @()
 
-        while ($true) {
-            $userLog = Invoke-SSH $ServerUser $ServerIP `
-                "powershell -NoProfile -Command `"if (Test-Path 'C:\webapp\logs\user_install.log') { Get-Content 'C:\webapp\logs\user_install.log' }`"" 2>$null
-
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host "SSH not ready for user_install.log yet. Retrying in 15 seconds..." -ForegroundColor DarkYellow
-                Start-Sleep 15
-                continue
-            }
-
-            if ($userLog) {
-                if (-not $lastUserLines) {
-                    $new = $userLog               # первый раз — весь файл
-                } else {
-                    $new = Compare-Object -ReferenceObject $lastUserLines -DifferenceObject $userLog |
-                           Where-Object { $_.SideIndicator -eq '=>' } |
-                           ForEach-Object { $_.InputObject }
-                }
-
-                $new | ForEach-Object { Write-Host $_ }
-                $lastUserLines = $userLog
-
-                if ($userLog -match 'INSTALLATION SCRIPT COMPLETED') {
-                    Write-Host "user_install.log: reboot scheduled, waiting for VM to restart..." -ForegroundColor Green
-                    break
-                }
-            }
-
-            Start-Sleep 20
-        }
+        Watch-RemoteLog `
+          -User        $ServerUser `
+          -Ip          $ServerIP `
+          -KeyPath     $SshPrivateKeyPath `
+          -RemoteLogPath "C:\webapp\logs\user_install.log" `
+          -DoneMarker  "INSTALLATION SCRIPT COMPLETED" `
+          -IntervalSeconds 10
 
         # =====================================================================
         # Ждём, пока ВМ перезагрузится и снова примет SSH
@@ -648,7 +706,7 @@ if ($credsReceived) {
             } catch { }
 
             Write-Host "SSH still not ready after reboot. Waiting 20 seconds..." -ForegroundColor DarkGray
-            Start-Sleep 20
+            Start-Sleep 10
         }
 
         Write-Host "SSH is back. Switching to SQL installation log..." -ForegroundColor Green
@@ -657,41 +715,16 @@ if ($credsReceived) {
         # PHASE 2: sql_install.log (ждём 'SQL install completed')
         # =====================================================================
         Write-Host "----- sql_install.log -----" -ForegroundColor Cyan
-        $lastSqlLines = @()
 
-        while ($true) {
-            $sqlLog = Invoke-SSH $ServerUser $ServerIP `
-                "powershell -NoProfile -Command `"if (Test-Path 'C:\webapp\logs\sql_install.log') { Get-Content 'C:\webapp\logs\sql_install.log' }`"" 2>$null
+        Watch-RemoteLog `
+          -User        $ServerUser `
+          -Ip          $ServerIP `
+          -KeyPath     $SshPrivateKeyPath `
+          -RemoteLogPath "C:\webapp\logs\sql_install.log" `
+          -DoneMarker  "SQL install completed" `
+          -IntervalSeconds 10
 
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host "SSH not ready for sql_install.log yet. Retrying in 20 seconds..." -ForegroundColor DarkYellow
-                Start-Sleep 20
-                continue
-            }
-
-            if ($sqlLog) {
-                if (-not $lastSqlLines) {
-                    $new = $sqlLog
-                } else {
-                    $new = Compare-Object -ReferenceObject $lastSqlLines -DifferenceObject $sqlLog |
-                           Where-Object { $_.SideIndicator -eq '=>' } |
-                           ForEach-Object { $_.InputObject }
-                }
-
-                $new | ForEach-Object { Write-Host $_ }
-                $lastSqlLines = $sqlLog
-
-                if ($sqlLog -match 'SQL install completed') {
-                    Write-Host "SQL installation completed (marker found in sql_install.log). Finishing deploy..." -ForegroundColor Green
-                    break
-                }
-            } else {
-                Write-Host "Waiting for sql_install.log..." -ForegroundColor DarkGray
-            }
-
-            Start-Sleep 20
-        }
-
+        Write-Host "SQL installation completed (marker found in sql_install.log). Finishing deploy..." -ForegroundColor Green
         Write-Host "DONE." -ForegroundColor Green
     }
 }

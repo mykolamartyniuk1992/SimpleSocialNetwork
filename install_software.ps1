@@ -22,7 +22,7 @@ else {
     Write-Log "Chocolatey already installed, skipping."
 }
 
-<# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # 1. Base Tools & .NET SDKs  (ОТКЛЮЧЕНО ДЛЯ УСКОРЕНИЯ)
 try {
     Write-Log "Installing base tools and .NET SDKs..."
@@ -34,6 +34,16 @@ try {
     )
     choco install $packages -y --no-progress
 } catch { Write-Log "Error Choco Base: $_" }
+
+# ---------------------------------------------------------------------------
+# 1a. Caddy & NSSM (для веб-сервера и сервисов)
+try {
+    Write-Log "Installing Caddy and NSSM via Chocolatey..."
+    choco install caddy nssm -y --no-progress
+    Write-Log "Caddy and NSSM installation finished."
+} catch {
+    Write-Log "Error installing Caddy/NSSM: $_"
+}
 # ---------------------------------------------------------------------------
 # 2. GitHub Desktop (Clean User Install)  (ОТКЛЮЧЕНО)
 try {
@@ -85,7 +95,7 @@ try {
         Write-Log "SSMS path not found, skipping SSMS shortcut."
     }
 } catch { }
-# --------------------------------------------------------------------------- #>
+# --------------------------------------------------------------------------- 
 
 Write-Log "Base stage COMPLETE (Chocolatey only, no extra tools)."
 

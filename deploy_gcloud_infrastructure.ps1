@@ -75,29 +75,32 @@ function Invoke-Gcloud {
   if ($stdout) { Write-Host $stdout.TrimEnd() }
   if ($stderr) { Write-Warning $stderr.TrimEnd() }
   if ($p.ExitCode -ne $SuccessCode) {
-    throw "gcloud exited with code $($p.ExitCode). Args: $Args"
+    throw "gcloud exited with code $($p.ExitCode). Args: $GcloudArgs"
   }
   return $stdout
 }
 
-# Глобальные переменные SSH (заполняются позже)
-$Global:SshPrivateKeyPath = $null
+# ---------- SSH helpers ----------
 
+# Глобальный Invoke-SSH: всегда используем один и тот же ключ и опции
 function Invoke-SSH {
   param(
-    [string]$User,
-    [string]$IP,
-    [string]$Command
+    [Parameter(Mandatory)] [string]$User,
+    [Parameter(Mandatory)] [string]$IP,
+    [Parameter(Mandatory)] [string]$Command
   )
 
-  if (-not $Global:SshPrivateKeyPath) {
-    throw "SshPrivateKeyPath is not set."
+  if (-not $script:SshPrivateKeyPath) {
+    throw "SshPrivateKeyPath not set at script scope."
   }
 
+  $knownHosts = Join-Path $env:USERPROFILE ".ssh\known_hosts"
+
   $sshArgs = @(
-    "-i", $Global:SshPrivateKeyPath,
-    "-o", "StrictHostKeyChecking=accept-new",
-    "-o", "ConnectTimeout=30",
+    "-i", $script:SshPrivateKeyPath,
+    "-o", "StrictHostKeyChecking=no",
+    "-o", "UserKnownHostsFile=$knownHosts",
+    "-o", "ConnectTimeout=20",
     "$User@$IP",
     $Command
   )
@@ -105,54 +108,7 @@ function Invoke-SSH {
   & ssh @sshArgs
 }
 
-function Ensure-SshKeyPair {
-  param(
-    # Базовый путь для ключей (без .pub)
-    [string]$KeyBasePath
-  )
-
-  if ([string]::IsNullOrWhiteSpace($KeyBasePath)) {
-    $KeyBasePath = Join-Path $PSScriptRoot "mykola_ssh"
-  }
-
-  $privateKeyPath = $KeyBasePath
-  $publicKeyPath = "${KeyBasePath}.pub"
-
-  if ((Test-Path $privateKeyPath) -and (Test-Path $publicKeyPath)) {
-    Write-Host "Using existing SSH key pair:"
-    Write-Host "  Private: $privateKeyPath"
-    Write-Host "  Public : $publicKeyPath"
-    return @{
-      Private = $privateKeyPath
-      Public  = $publicKeyPath
-    }
-  }
-
-  Write-Host "SSH key pair not found. Generating new key pair at: $KeyBasePath"
-
-  $sshKeygen = "ssh-keygen"
-  $args = @(
-    "-t", "ed25519",
-    "-f", $privateKeyPath,
-    "-N", ""
-  )
-
-  & $sshKeygen @args | Out-Null
-
-  if (-not (Test-Path $publicKeyPath)) {
-    throw "Failed to generate SSH public key at $publicKeyPath"
-  }
-
-  Write-Host "✔ SSH keys generated:"
-  Write-Host "  Private: $privateKeyPath"
-  Write-Host "  Public : $publicKeyPath"
-
-  return @{
-    Private = $privateKeyPath
-    Public  = $publicKeyPath
-  }
-}
-
+# Ожидание, пока sshd поднимется и startup-скрипт создаст marker
 function Wait-ForSshAndPrep {
   param(
     [string]$InstanceName,
@@ -168,18 +124,21 @@ function Wait-ForSshAndPrep {
   $attempt = 0
 
   while (-not $ready) {
+
     if (((Get-Date) - $start).TotalMinutes -gt $TimeoutMinutes) {
       throw "Timeout ($TimeoutMinutes min) waiting for SSH / prep marker on $InstanceName."
     }
 
     $attempt++
+
     try {
-      $remoteCmd = "powershell -Command ""if (Test-Path 'C:\webapp\system_prep_complete.txt') { Write-Output 'READY' } else { Write-Output 'NOT_READY' }"""
+      $remoteCmd = "powershell -NoProfile -Command ""if (Test-Path 'C:\webapp\system_prep_complete.txt') { 'READY' } else { 'NOT_READY' }"""
 
       $sshArgs = @(
         "-i", $SshPrivateKeyPath,
-        "-o", "BatchMode=yes",
         "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=$($env:USERPROFILE)\.ssh\known_hosts",
+        "-o", "BatchMode=yes",
         "-o", "ConnectTimeout=10",
         "mykola@$ExternalIp",
         $remoteCmd
@@ -202,6 +161,8 @@ function Wait-ForSshAndPrep {
     }
   }
 }
+
+# ---------- cleanup old DNS transaction.yaml ----------
 
 $possibleTxnLocations = @(
   (Join-Path $PSScriptRoot "transaction.yaml"),
@@ -227,8 +188,9 @@ Invoke-Gcloud "config set project $Project"       | Out-Null
 Invoke-Gcloud "config set compute/region $Region" | Out-Null
 Invoke-Gcloud "config set compute/zone $Zone"     | Out-Null
 
-# --- Open port 445 (SMB) ---
+# --- Open port 445 (SMB) in Google Cloud Firewall ---
 $firewallRuleName = "allow-smb-445"
+
 $existingRules = Invoke-Gcloud "compute firewall-rules list --format=""value(name)"""
 if ($existingRules -split "`r?`n" -contains $firewallRuleName) {
   Write-Host "Firewall rule '$firewallRuleName' for port 445 already exists."
@@ -275,17 +237,60 @@ $sha = (Get-FileHash -Algorithm SHA256 $startup).Hash
 Write-Host "Startup script: $startup"
 Write-Host "SHA256: $sha"
 
-# --- SSH key pair ---
+# --- SSH key pair for user 'mykola' (passwordless SSH) ---
+function Ensure-SshKeyPair {
+  param(
+    [string]$KeyBasePath
+  )
+
+  if ([string]::IsNullOrWhiteSpace($KeyBasePath)) {
+    $KeyBasePath = Join-Path $PSScriptRoot "mykola_ssh"
+  }
+
+  $privateKeyPath = $KeyBasePath
+  $publicKeyPath  = "${KeyBasePath}.pub"
+
+  if ((Test-Path $privateKeyPath) -and (Test-Path $publicKeyPath)) {
+    Write-Host "Using existing SSH key pair:"
+    Write-Host "  Private: $privateKeyPath"
+    Write-Host "  Public : $publicKeyPath"
+    return @{
+      Private = $privateKeyPath
+      Public  = $publicKeyPath
+    }
+  }
+
+  Write-Host "SSH key pair not found. Generating new key pair at: $KeyBasePath"
+  $sshKeygen = "ssh-keygen"
+  $args = @("-t", "ed25519", "-f", $privateKeyPath, "-N", "")
+  & $sshKeygen @args | Out-Null
+
+  if (-not (Test-Path $publicKeyPath)) {
+    throw "Failed to generate SSH public key at $publicKeyPath"
+  }
+
+  Write-Host "✔ SSH keys generated:"
+  Write-Host "  Private: $privateKeyPath"
+  Write-Host "  Public : $publicKeyPath"
+
+  return @{
+    Private = $privateKeyPath
+    Public  = $publicKeyPath
+  }
+}
+
 $sshKeyInfo = Ensure-SshKeyPair -KeyBasePath (Join-Path $PSScriptRoot "mykola_ssh")
-$SshPrivateKeyPath = $sshKeyInfo.Private
-$SshPublicKeyPath  = $sshKeyInfo.Public
-$Global:SshPrivateKeyPath = $SshPrivateKeyPath
+$script:SshPrivateKeyPath = $sshKeyInfo.Private
+$SshPublicKeyPath         = $sshKeyInfo.Public
+
+# чтобы Invoke-SSH видел ключ
+$script:SshPrivateKeyPath = $SshPrivateKeyPath
 
 Write-Host "SSH key pair will be used for user 'mykola':"
 Write-Host "  Private key: $SshPrivateKeyPath"
 Write-Host "  Public key : $SshPublicKeyPath"
 
-# --- recreate instance template ---
+# --- recreate instance template if exists ---
 $allTpl = Invoke-Gcloud 'compute instance-templates list --format="value(name)"'
 if (($allTpl -split "`r?`n") -contains $TemplateName) {
   if ($WhatIf) { Write-Host "WhatIf: would delete template '$TemplateName' (skipped)." }
@@ -303,6 +308,7 @@ if ($Subnetwork) { $netArgs += "--subnet=$Subnetwork" }
 $metadataInline = "domain=$Domain,email=$AcmeEmail"
 $metadataFileKV = "windows-startup-script-ps1=""$startup"",ssh-public-key=""$SshPublicKeyPath"""
 
+# --- create instance template ---
 $argsList = @(
   "compute", "instance-templates", "create", $TemplateName,
   "--machine-type=$MachineType",
@@ -361,7 +367,21 @@ if (-not (($regionalList -split "`r?`n") -contains $addressName)) {
 $externalIp = (Invoke-Gcloud "compute addresses describe $addressName --region=$Region --format=""value(address)""" | Select-Object -First 1).Trim()
 Write-Host "Planned External IP (regional $Region): $externalIp"
 
-# === CREATE VM ===
+# --- очистка старого host key для этого IP из known_hosts ---
+$khPath = Join-Path $env:USERPROFILE ".ssh\known_hosts"
+if (Test-Path $khPath) {
+    Write-Host "Cleaning old SSH host key for $externalIp..."
+    $oldLines = Get-Content $khPath
+
+    # Строки в known_hosts обычно начинаются с "IP " или "IP,"
+    $cleanLines = $oldLines | Where-Object {
+        -not (($_ -like "$externalIp *") -or ($_ -like "$externalIp,*"))
+    }
+
+    Set-Content $khPath $cleanLines
+}
+
+# === CREATE VM with this IP ===
 $niParts = @()
 if ($Subnetwork) { $niParts += "subnet=$Subnetwork" } else { $niParts += "network=$Network" }
 $niParts += "address=$externalIp"
@@ -381,12 +401,13 @@ else {
   Write-Host "✔ Instance '$InstanceName' created with static External IP $externalIp."
 }
 
+# --- get internal/external IPs ---
 $internalIp = (Invoke-Gcloud "compute instances describe $InstanceName --zone=$Zone --format=""value(networkInterfaces[0].networkIP)""" | Select-Object -First 1).Trim()
 $nowExternalIp = $externalIp
 Write-Host "Current Internal IP: $internalIp"
 Write-Host "External IP (pinned at create): $nowExternalIp"
 
-# ---------- Firewall rules ----------
+# ---------- FIREWALL RULES (RDP + HTTP/HTTPS + SMTP relay) ----------
 $fwListRaw = Invoke-Gcloud 'compute firewall-rules list --format="value(name)"'
 $fwNames = $fwListRaw -split "`r?`n"
 
@@ -399,7 +420,9 @@ if (-not ($fwNames -contains "allow-rdp")) {
     Invoke-Gcloud "compute firewall-rules create allow-rdp --network=$Network --direction=INGRESS --priority=1000 --action=ALLOW --rules=tcp:3389 --source-ranges=0.0.0.0/0 --target-tags=rdp-allow"
   }
 }
-else { Write-Host "Firewall rule 'allow-rdp' already exists." }
+else {
+  Write-Host "Firewall rule 'allow-rdp' already exists."
+}
 
 if (-not ($fwNames -contains "allow-webapp-http-https")) {
   if ($WhatIf) {
@@ -410,7 +433,9 @@ if (-not ($fwNames -contains "allow-webapp-http-https")) {
     Invoke-Gcloud "compute firewall-rules create allow-webapp-http-https --network=$Network --direction=INGRESS --priority=1000 --action=ALLOW --rules=tcp:80,tcp:443 --source-ranges=0.0.0.0/0 --target-tags=webapp"
   }
 }
-else { Write-Host "Firewall rule 'allow-webapp-http-https' already exists." }
+else {
+  Write-Host "Firewall rule 'allow-webapp-http-https' already exists."
+}
 
 if (-not ($fwNames -contains "allow-smtp-relay")) {
   if ($WhatIf) {
@@ -421,9 +446,11 @@ if (-not ($fwNames -contains "allow-smtp-relay")) {
     Invoke-Gcloud "compute firewall-rules create allow-smtp-relay --network=$Network --direction=INGRESS --priority=1000 --action=ALLOW --rules=tcp:587 --source-ranges=0.0.0.0/0 --target-tags=webapp"
   }
 }
-else { Write-Host "Firewall rule 'allow-smtp-relay' already exists." }
+else {
+  Write-Host "Firewall rule 'allow-smtp-relay' already exists."
+}
 
-# ---------- Resend DNS ----------
+# ---------- Resend DNS records (DKIM, SPF, DMARC) ----------
 Write-Host "`nConfiguring Resend DNS records…"
 
 $zoneDnsName = (Invoke-Gcloud "dns managed-zones describe $DnsZoneName --format=""value(dnsName)"" --quiet" | Select-Object -First 1).Trim()
@@ -438,10 +465,10 @@ $dkimName  = "resend._domainkey.$mailHost."
 $spfName   = "send.$mailHost."
 $dmarcName = "_dmarc.$mailHost."
 
-$dkimTxtValue  = '"' + $ResendDkimValue  + '"'
-$spfTxtValue   = '"' + $ResendSpfValue   + '"'
-$dmarcTxtValue = '"' + $ResendDmarcValue + '"'
-$spfMxRrData   = "10 feedback-smtp.eu-west-1.amazonses.com."
+$dkimTxtValue   = '"' + $ResendDkimValue + '"'
+$spfTxtValue    = '"' + $ResendSpfValue + '"'
+$dmarcTxtValue  = '"' + $ResendDmarcValue + '"'
+$spfMxRrData    = "10 feedback-smtp.eu-west-1.amazonses.com."
 
 Write-Host "DEBUG: Base Domain: '$baseDomainRaw'"
 Write-Host "DEBUG: Mail Host:   '$mailHost'"
@@ -455,7 +482,7 @@ function Ensure-DnsRecord {
   )
 
   Write-Host "Checking $Type record: $Name"
-
+    
   try {
     $current = (Invoke-Gcloud "dns record-sets list --zone=$DnsZoneName --name=""$Name"" --type=$Type --format=""value(rrdatas[0])""")
     if ($null -ne $current) { $current = $current.Trim() }
@@ -539,134 +566,134 @@ while (-not $credsReceived) {
 }
 
 if ($credsReceived) {
+    # Ждём, пока стартовый скрипт поднимет sshd и создаст marker
+    Wait-ForSshAndPrep -InstanceName $InstanceName -Zone $Zone -SshPrivateKeyPath $SshPrivateKeyPath -ExternalIp $externalIp
 
-  # Параметры SSH
-  $ServerUser = "mykola"
-  $ServerIP   = $externalIp
-
-  # Чистим старый host key для этого IP
-  Write-Host "Cleaning old SSH host key for $ServerIP..." -ForegroundColor DarkGray
-  ssh-keygen -R $ServerIP 2>$null | Out-Null
-  ssh-keygen -R "[$ServerIP]:22" 2>$null | Out-Null
-
-  # Ждём prep-маркер
-  Wait-ForSshAndPrep -InstanceName $InstanceName -Zone $Zone -SshPrivateKeyPath $SshPrivateKeyPath -ExternalIp $ServerIP
-
-  # Копируем install_software.ps1
-  Write-Host "`nStarting Software Installation..."
-  $InstallScriptLocal = Join-Path $PSScriptRoot "install_software.ps1"
+    Write-Host "`nStarting Software Installation..."
+    $InstallScriptLocal = Join-Path $PSScriptRoot "install_software.ps1"
     
-  if (Test-Path $InstallScriptLocal) {
+    if (Test-Path $InstallScriptLocal) {
 
-    $scpArgs = @(
-      "-i", $SshPrivateKeyPath,
-      "-o", "StrictHostKeyChecking=accept-new",
-      "-o", "ConnectTimeout=30",
-      $InstallScriptLocal,
-      "mykola@${ServerIP}:C:\webapp\install_software.ps1"
-    )
-    & scp @scpArgs
+        # 1) Копируем скрипт на ВМ в C:\webapp
+        $scpArgs = @(
+            "-i", $SshPrivateKeyPath,
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "ConnectTimeout=30",
+            $InstallScriptLocal,
+            "mykola@${externalIp}:C:\webapp\install_software.ps1"
+        )
+        & scp @scpArgs
 
-    Write-Host "Installing VS 2026, GitHub, etc (Remote Exec)..." -ForegroundColor Yellow
+        Write-Host "Installing VS 2026, GitHub, etc (Remote Exec)..." -ForegroundColor Yellow
 
-    # Запуск install_software.ps1 в фоне
-    Invoke-SSH $ServerUser $ServerIP "powershell -NoProfile -Command `"Start-Process powershell.exe -ArgumentList '-ExecutionPolicy Bypass -NoProfile -File C:\webapp\install_software.ps1' -WindowStyle Hidden`""
+        # 2) Запускаем install_software.ps1 в фоне (через Start-Process)
+        # Одинарные кавычки с двойными внутри — ничего не трогается при передаче в ssh.
+        $remoteCmd = 'powershell -NoProfile -ExecutionPolicy Bypass -File C:\webapp\install_software.ps1'
 
-    Write-Host "NOTE: Base software will install now, SQL Server after reboot." -ForegroundColor Yellow
-    Write-Host "Logs will be polled from the VM (user_install.log, then sql_install.log)." -ForegroundColor DarkGray
+        Write-Host "DEBUG remoteCmd: $remoteCmd"  # чтобы видеть в логах, что реально шлём
 
-    # ----- PHASE 1: user_install.log -----
-    Write-Host "----- user_install.log -----" -ForegroundColor Cyan
+        $ServerUser = "mykola"
+        $ServerIP   = $externalIp
+        Invoke-SSH $ServerUser $ServerIP $remoteCmd
+        Write-Host "DEBUG ssh exit code (install_software): $LASTEXITCODE"
 
-    $lastUserLines = @()
+        Write-Host "NOTE: Base software will install now, SQL Server after reboot." -ForegroundColor Yellow
+        Write-Host "Logs will be polled from the VM (user_install.log, then sql_install.log)." -ForegroundColor DarkGray
 
-    while ($true) {
-      $userLog = Invoke-SSH $ServerUser $ServerIP "powershell -NoProfile -Command `"if (Test-Path 'C:\webapp\logs\user_install.log') { Get-Content 'C:\webapp\logs\user_install.log' }`"" 2>$null
+        # =====================================================================
+        # PHASE 1: user_install.log (до ребута)
+        # =====================================================================
+        Write-Host "----- user_install.log -----" -ForegroundColor Cyan
+        $lastUserLines = @()
 
-      if ($LASTEXITCODE -ne 0) {
-        Write-Host "SSH not ready for user_install.log yet. Retrying in 15 seconds..." -ForegroundColor DarkYellow
-        Start-Sleep 15
-        continue
-      }
+        while ($true) {
+            $userLog = Invoke-SSH $ServerUser $ServerIP `
+                "powershell -NoProfile -Command `"if (Test-Path 'C:\webapp\logs\user_install.log') { Get-Content 'C:\webapp\logs\user_install.log' }`"" 2>$null
 
-      if ($userLog) {
-        if (-not $lastUserLines) {
-          $new = $userLog
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "SSH not ready for user_install.log yet. Retrying in 15 seconds..." -ForegroundColor DarkYellow
+                Start-Sleep 15
+                continue
+            }
+
+            if ($userLog) {
+                if (-not $lastUserLines) {
+                    $new = $userLog               # первый раз — весь файл
+                } else {
+                    $new = Compare-Object -ReferenceObject $lastUserLines -DifferenceObject $userLog |
+                           Where-Object { $_.SideIndicator -eq '=>' } |
+                           ForEach-Object { $_.InputObject }
+                }
+
+                $new | ForEach-Object { Write-Host $_ }
+                $lastUserLines = $userLog
+
+                if ($userLog -match 'INSTALLATION SCRIPT COMPLETED') {
+                    Write-Host "user_install.log: reboot scheduled, waiting for VM to restart..." -ForegroundColor Green
+                    break
+                }
+            }
+
+            Start-Sleep 20
         }
-        else {
-          $new = Compare-Object -ReferenceObject $lastUserLines -DifferenceObject $userLog |
-            Where-Object { $_.SideIndicator -eq '=>' } |
-            ForEach-Object { $_.InputObject }
+
+        # =====================================================================
+        # Ждём, пока ВМ перезагрузится и снова примет SSH
+        # =====================================================================
+        Write-Host "Waiting for VM to come back after reboot..." -ForegroundColor Yellow
+        while ($true) {
+            try {
+                Invoke-SSH $ServerUser $ServerIP "echo ok" 2>$null | Out-Null
+                if ($LASTEXITCODE -eq 0) { break }
+            } catch { }
+
+            Write-Host "SSH still not ready after reboot. Waiting 20 seconds..." -ForegroundColor DarkGray
+            Start-Sleep 20
         }
 
-        $new | ForEach-Object { Write-Host $_ }
-        $lastUserLines = $userLog
-      }
+        Write-Host "SSH is back. Switching to SQL installation log..." -ForegroundColor Green
 
-      if ($userLog -match 'INSTALLATION SCRIPT COMPLETED') {
-        Write-Host "user_install.log: reboot scheduled, waiting for VM to restart..." -ForegroundColor Green
-        break
-      }
+        # =====================================================================
+        # PHASE 2: sql_install.log (ждём 'SQL install completed')
+        # =====================================================================
+        Write-Host "----- sql_install.log -----" -ForegroundColor Cyan
+        $lastSqlLines = @()
 
-      Start-Sleep 20
+        while ($true) {
+            $sqlLog = Invoke-SSH $ServerUser $ServerIP `
+                "powershell -NoProfile -Command `"if (Test-Path 'C:\webapp\logs\sql_install.log') { Get-Content 'C:\webapp\logs\sql_install.log' }`"" 2>$null
+
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "SSH not ready for sql_install.log yet. Retrying in 20 seconds..." -ForegroundColor DarkYellow
+                Start-Sleep 20
+                continue
+            }
+
+            if ($sqlLog) {
+                if (-not $lastSqlLines) {
+                    $new = $sqlLog
+                } else {
+                    $new = Compare-Object -ReferenceObject $lastSqlLines -DifferenceObject $sqlLog |
+                           Where-Object { $_.SideIndicator -eq '=>' } |
+                           ForEach-Object { $_.InputObject }
+                }
+
+                $new | ForEach-Object { Write-Host $_ }
+                $lastSqlLines = $sqlLog
+
+                if ($sqlLog -match 'SQL install completed') {
+                    Write-Host "SQL installation completed (marker found in sql_install.log). Finishing deploy..." -ForegroundColor Green
+                    break
+                }
+            } else {
+                Write-Host "Waiting for sql_install.log..." -ForegroundColor DarkGray
+            }
+
+            Start-Sleep 20
+        }
+
+        Write-Host "DONE." -ForegroundColor Green
     }
-
-    Write-Host "Waiting for VM to come back after reboot..." -ForegroundColor Yellow
-
-    while ($true) {
-      try {
-        Invoke-SSH $ServerUser $ServerIP "echo ok" 2>$null | Out-Null
-        if ($LASTEXITCODE -eq 0) { break }
-      }
-      catch { }
-
-      Write-Host "SSH still not ready after reboot. Waiting 20 seconds..." -ForegroundColor DarkGray
-      Start-Sleep 20
-    }
-
-    Write-Host "SSH is back. Switching to SQL installation log..." -ForegroundColor Green
-
-    # ----- PHASE 2: sql_install.log -----
-    Write-Host "----- sql_install.log -----" -ForegroundColor Cyan
-
-    $lastSqlLines = @()
-
-    while ($true) {
-      $sqlLog = Invoke-SSH $ServerUser $ServerIP "powershell -NoProfile -Command `"if (Test-Path 'C:\webapp\logs\sql_install.log') { Get-Content 'C:\webapp\logs\sql_install.log' }`"" 2>$null
-
-      if ($LASTEXITCODE -ne 0) {
-        Write-Host "SSH not ready for sql_install.log yet. Retrying in 20 seconds..." -ForegroundColor DarkYellow
-        Start-Sleep 20
-        continue
-      }
-
-      if ($sqlLog) {
-        if (-not $lastSqlLines) {
-          $new = $sqlLog
-        }
-        else {
-          $new = Compare-Object -ReferenceObject $lastSqlLines -DifferenceObject $sqlLog |
-            Where-Object { $_.SideIndicator -eq '=>' } |
-            ForEach-Object { $_.InputObject }
-        }
-
-        $new | ForEach-Object { Write-Host $_ }
-        $lastSqlLines = $sqlLog
-
-        if ($sqlLog -match 'SQL install completed') {
-          Write-Host "SQL installation completed (marker found in sql_install.log). Finishing deploy..." -ForegroundColor Green
-          break
-        }
-      }
-      else {
-        Write-Host "Waiting for sql_install.log..." -ForegroundColor DarkGray
-      }
-
-      Start-Sleep 20
-    }
-
-    Write-Host "DONE." -ForegroundColor Green
-  }
 }
 
 Stop-Transcript | Out-Null

@@ -121,7 +121,7 @@ Write-Log "=== STARTING SQL SERVER 2022 INSTALL ==="
 # 1) Install SQL Server 2022
 $choco = "C:\ProgramData\chocolatey\bin\choco.exe"
 Write-Log "Running: $choco install sql-server-2022 (BUILTIN\Administrators as sysadmin) ..."
-& $choco install sql-server-2022 -y --no-progress --params "'/IgnorePendingReboot /SQLSYSADMINACCOUNTS=\"BUILTIN\Administrators\"'"
+& $choco install sql-server-2022 -y --no-progress --params '/IgnorePendingReboot /SQLSYSADMINACCOUNTS="BUILTIN\Administrators"'
 Write-Log "Choco install finished with exit code $LASTEXITCODE"
 
 # 2) Wait for SQL service

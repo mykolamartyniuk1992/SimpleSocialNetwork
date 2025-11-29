@@ -3,7 +3,7 @@
 # =============================================
 
 Param(
-  [string]$Project = "",
+  [string]$Project = "norse-strata-476814-j9",
   [string]$Region = "us-central1",
   [string]$Zone = "us-central1-c",
   [string]$TemplateName = "webapp-windows-template",
@@ -27,13 +27,10 @@ Param(
   # Secret Manager: имя секрета для пароля почты
   [string]$MailSecretName = "resend-email-api-key",
 
-  # Resend DNS values (для отправки почты через mail.mykolamartyniuk1992.dev)
-  # Эти значения берутся из панели Resend -> Domain -> DNS Records.
-  # DKIM СКОПИРУЙ ЦЕЛИКОМ из Resend вместо PLACEHOLDER.
-  [string]$ResendDkimValue = "v=DKIM1; k=rsa; ",
+  # Resend DNS values
+  [string]$ResendDkimValue = "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDe1AbDloh5x0fNvf/ck6ClEHHl/VmUWtncczbn02M1SHcw5nKpRzvosRYXB6Iu2XNxvifnnFXAX63/aY+ccvG7bSLiPR5+LPvOWbbnwfeku06ofTc4mnfPw/SGc3E3vLNASviKSJiVhsqe5FNHc2PCL61Tr1/TpVaEEVQ5Uy/oTQIDAQAB",
   [string]$ResendSpfValue = "v=spf1 include:amazonses.com ~all",
   [string]$ResendDmarcValue = "v=DMARC1; p=none;",
-
 
   [switch]$WhatIf
 )
@@ -83,6 +80,9 @@ function Invoke-Gcloud {
   return $stdout
 }
 
+# Глобальные переменные SSH (заполняются позже)
+$Global:SshPrivateKeyPath = $null
+
 function Invoke-SSH {
   param(
     [string]$User,
@@ -90,7 +90,19 @@ function Invoke-SSH {
     [string]$Command
   )
 
-  ssh "$User@$IP" "$Command"
+  if (-not $Global:SshPrivateKeyPath) {
+    throw "SshPrivateKeyPath is not set."
+  }
+
+  $sshArgs = @(
+    "-i", $Global:SshPrivateKeyPath,
+    "-o", "StrictHostKeyChecking=accept-new",
+    "-o", "ConnectTimeout=30",
+    "$User@$IP",
+    $Command
+  )
+
+  & ssh @sshArgs
 }
 
 function Ensure-SshKeyPair {
@@ -103,10 +115,9 @@ function Ensure-SshKeyPair {
     $KeyBasePath = Join-Path $PSScriptRoot "mykola_ssh"
   }
 
-  $privateKeyPath = $KeyBasePath          # C:\...\mykola_ssh
-  $publicKeyPath = "${KeyBasePath}.pub"  # C:\...\mykola_ssh.pub
+  $privateKeyPath = $KeyBasePath
+  $publicKeyPath = "${KeyBasePath}.pub"
 
-  # Если пара уже есть – используем её
   if ((Test-Path $privateKeyPath) -and (Test-Path $publicKeyPath)) {
     Write-Host "Using existing SSH key pair:"
     Write-Host "  Private: $privateKeyPath"
@@ -117,14 +128,13 @@ function Ensure-SshKeyPair {
     }
   }
 
-  # Генерируем новую пару (нужен OpenSSH-клиент с ssh-keygen в PATH)
   Write-Host "SSH key pair not found. Generating new key pair at: $KeyBasePath"
 
   $sshKeygen = "ssh-keygen"
   $args = @(
-    "-t", "ed25519",     # тип ключа
+    "-t", "ed25519",
     "-f", $privateKeyPath,
-    "-N", ""             # пустая passphrase
+    "-N", ""
   )
 
   & $sshKeygen @args | Out-Null
@@ -148,7 +158,7 @@ function Wait-ForSshAndPrep {
     [string]$InstanceName,
     [string]$Zone,
     [string]$SshPrivateKeyPath,
-    [string]$ExternalIpParam,         
+    [string]$ExternalIp,
     [int]$TimeoutMinutes = 30
   )
 
@@ -158,17 +168,14 @@ function Wait-ForSshAndPrep {
   $attempt = 0
 
   while (-not $ready) {
-
     if (((Get-Date) - $start).TotalMinutes -gt $TimeoutMinutes) {
       throw "Timeout ($TimeoutMinutes min) waiting for SSH / prep marker on $InstanceName."
     }
 
     $attempt++
     try {
-      # Команда, которая выполняется на ВМ
       $remoteCmd = "powershell -Command ""if (Test-Path 'C:\webapp\system_prep_complete.txt') { Write-Output 'READY' } else { Write-Output 'NOT_READY' }"""
 
-      # Аргументы для ssh.exe
       $sshArgs = @(
         "-i", $SshPrivateKeyPath,
         "-o", "BatchMode=yes",
@@ -178,7 +185,6 @@ function Wait-ForSshAndPrep {
         $remoteCmd
       )
 
-      # Запускаем обычный ssh и собираем вывод (stdout+stderr)
       $output = & ssh @sshArgs 2>&1
 
       if ($output -match "READY") {
@@ -191,7 +197,6 @@ function Wait-ForSshAndPrep {
       }
     }
     catch {
-      # Сюда попадём, если ssh не может подключиться / порт 22 ещё не слушает и т.п.
       Write-Host -NoNewline "."
       Start-Sleep -Seconds 15
     }
@@ -222,10 +227,8 @@ Invoke-Gcloud "config set project $Project"       | Out-Null
 Invoke-Gcloud "config set compute/region $Region" | Out-Null
 Invoke-Gcloud "config set compute/zone $Zone"     | Out-Null
 
-# --- Open port 445 (SMB) in Google Cloud Firewall ---
+# --- Open port 445 (SMB) ---
 $firewallRuleName = "allow-smb-445"
-
-# Robust check: Get list of all rules and check if our rule is in it
 $existingRules = Invoke-Gcloud "compute firewall-rules list --format=""value(name)"""
 if ($existingRules -split "`r?`n" -contains $firewallRuleName) {
   Write-Host "Firewall rule '$firewallRuleName' for port 445 already exists."
@@ -236,7 +239,6 @@ else {
   }
   else {
     Write-Host "Creating firewall rule '$firewallRuleName'..."
-    # Removed parenthesis from description to avoid PowerShell parsing issues
     Invoke-Gcloud "compute firewall-rules create $firewallRuleName --allow=tcp:445 --direction=INGRESS --priority=1000 --network=$Network --target-tags=webapp --source-ranges=0.0.0.0/0 --description=Allow-SMB-TCP-445-for-deployment"
     Write-Host "✔ Firewall rule '$firewallRuleName' created."
   }
@@ -273,16 +275,17 @@ $sha = (Get-FileHash -Algorithm SHA256 $startup).Hash
 Write-Host "Startup script: $startup"
 Write-Host "SHA256: $sha"
 
-# --- SSH key pair for user 'mykola' (passwordless SSH) ---
+# --- SSH key pair ---
 $sshKeyInfo = Ensure-SshKeyPair -KeyBasePath (Join-Path $PSScriptRoot "mykola_ssh")
-$SshPrivateKeyPath = $sshKeyInfo.Private   # <-- ЗДЕСЬ объявляется переменная
-$SshPublicKeyPath = $sshKeyInfo.Public
+$SshPrivateKeyPath = $sshKeyInfo.Private
+$SshPublicKeyPath  = $sshKeyInfo.Public
+$Global:SshPrivateKeyPath = $SshPrivateKeyPath
 
 Write-Host "SSH key pair will be used for user 'mykola':"
 Write-Host "  Private key: $SshPrivateKeyPath"
 Write-Host "  Public key : $SshPublicKeyPath"
 
-# --- recreate instance template if exists ---
+# --- recreate instance template ---
 $allTpl = Invoke-Gcloud 'compute instance-templates list --format="value(name)"'
 if (($allTpl -split "`r?`n") -contains $TemplateName) {
   if ($WhatIf) { Write-Host "WhatIf: would delete template '$TemplateName' (skipped)." }
@@ -298,12 +301,8 @@ if ($Subnetwork) { $netArgs += "--subnet=$Subnetwork" }
 
 # --- metadata ---
 $metadataInline = "domain=$Domain,email=$AcmeEmail"
-
-# metadata-from-file: ключ = имя атрибута, значение = путь к файлу
-# gcloud подставит В САМИ МЕТАДАННЫЕ содержимое файла .pub
 $metadataFileKV = "windows-startup-script-ps1=""$startup"",ssh-public-key=""$SshPublicKeyPath"""
 
-# --- create instance template ---
 $argsList = @(
   "compute", "instance-templates", "create", $TemplateName,
   "--machine-type=$MachineType",
@@ -338,7 +337,6 @@ if (($existsVm -split "`r?`n") -contains $InstanceName) {
 # === Regional static external IP ===
 $addressName = "${InstanceName}-external-ip"
 
-# Delete GLOBAL address with same name (we need regional)
 $globalList = Invoke-Gcloud 'compute addresses list --global --format="value(name)"'
 if (($globalList -split "`r?`n") -contains $addressName) {
   if ($WhatIf) {
@@ -350,7 +348,6 @@ if (($globalList -split "`r?`n") -contains $addressName) {
   }
 }
 
-# Create/reuse REGIONAL address
 $regionalList = Invoke-Gcloud "compute addresses list --regions=$Region --format=""value(name)"""
 if (-not (($regionalList -split "`r?`n") -contains $addressName)) {
   if ($WhatIf) {
@@ -364,7 +361,7 @@ if (-not (($regionalList -split "`r?`n") -contains $addressName)) {
 $externalIp = (Invoke-Gcloud "compute addresses describe $addressName --region=$Region --format=""value(address)""" | Select-Object -First 1).Trim()
 Write-Host "Planned External IP (regional $Region): $externalIp"
 
-# === CREATE VM with this IP ===
+# === CREATE VM ===
 $niParts = @()
 if ($Subnetwork) { $niParts += "subnet=$Subnetwork" } else { $niParts += "network=$Network" }
 $niParts += "address=$externalIp"
@@ -384,17 +381,15 @@ else {
   Write-Host "✔ Instance '$InstanceName' created with static External IP $externalIp."
 }
 
-# --- get internal/external IPs ---
 $internalIp = (Invoke-Gcloud "compute instances describe $InstanceName --zone=$Zone --format=""value(networkInterfaces[0].networkIP)""" | Select-Object -First 1).Trim()
 $nowExternalIp = $externalIp
 Write-Host "Current Internal IP: $internalIp"
 Write-Host "External IP (pinned at create): $nowExternalIp"
 
-# ---------- FIREWALL RULES (RDP + HTTP/HTTPS + SMTP relay) ----------
+# ---------- Firewall rules ----------
 $fwListRaw = Invoke-Gcloud 'compute firewall-rules list --format="value(name)"'
 $fwNames = $fwListRaw -split "`r?`n"
 
-# RDP
 if (-not ($fwNames -contains "allow-rdp")) {
   if ($WhatIf) {
     Write-Host "WhatIf: would create firewall rule 'allow-rdp'."
@@ -404,11 +399,8 @@ if (-not ($fwNames -contains "allow-rdp")) {
     Invoke-Gcloud "compute firewall-rules create allow-rdp --network=$Network --direction=INGRESS --priority=1000 --action=ALLOW --rules=tcp:3389 --source-ranges=0.0.0.0/0 --target-tags=rdp-allow"
   }
 }
-else {
-  Write-Host "Firewall rule 'allow-rdp' already exists."
-}
+else { Write-Host "Firewall rule 'allow-rdp' already exists." }
 
-# HTTP/HTTPS
 if (-not ($fwNames -contains "allow-webapp-http-https")) {
   if ($WhatIf) {
     Write-Host "WhatIf: would create firewall rule 'allow-webapp-http-https'."
@@ -418,11 +410,8 @@ if (-not ($fwNames -contains "allow-webapp-http-https")) {
     Invoke-Gcloud "compute firewall-rules create allow-webapp-http-https --network=$Network --direction=INGRESS --priority=1000 --action=ALLOW --rules=tcp:80,tcp:443 --source-ranges=0.0.0.0/0 --target-tags=webapp"
   }
 }
-else {
-  Write-Host "Firewall rule 'allow-webapp-http-https' already exists."
-}
+else { Write-Host "Firewall rule 'allow-webapp-http-https' already exists." }
 
-# SMTP relay (tcp:587)
 if (-not ($fwNames -contains "allow-smtp-relay")) {
   if ($WhatIf) {
     Write-Host "WhatIf: would create firewall rule 'allow-smtp-relay'."
@@ -432,41 +421,32 @@ if (-not ($fwNames -contains "allow-smtp-relay")) {
     Invoke-Gcloud "compute firewall-rules create allow-smtp-relay --network=$Network --direction=INGRESS --priority=1000 --action=ALLOW --rules=tcp:587 --source-ranges=0.0.0.0/0 --target-tags=webapp"
   }
 }
-else {
-  Write-Host "Firewall rule 'allow-smtp-relay' already exists."
-}
+else { Write-Host "Firewall rule 'allow-smtp-relay' already exists." }
 
-# ---------- Resend DNS records (DKIM, SPF, DMARC) ----------
+# ---------- Resend DNS ----------
 Write-Host "`nConfiguring Resend DNS records…"
-
-# Ensure base domain doesn't have trailing dot for string building
 
 $zoneDnsName = (Invoke-Gcloud "dns managed-zones describe $DnsZoneName --format=""value(dnsName)"" --quiet" | Select-Object -First 1).Trim()
 if ([string]::IsNullOrWhiteSpace($zoneDnsName)) {
   throw "DNS zone '$DnsZoneName' not found in project $Project."
-  exit
 }
 
-$baseDomainRaw = $zoneDnsName.TrimEnd('.') 
+$baseDomainRaw = $zoneDnsName.TrimEnd('.')
 $mailHost = "mail.$baseDomainRaw"
 
-# Define records (ensure valid FQDN with single trailing dot)
-$dkimName = "resend._domainkey.$mailHost."
-$spfName = "send.$mailHost."
+$dkimName  = "resend._domainkey.$mailHost."
+$spfName   = "send.$mailHost."
 $dmarcName = "_dmarc.$mailHost."
 
-# Values (wrap in quotes for gcloud)
-$dkimTxtValue = '"' + $ResendDkimValue + '"'
-$spfTxtValue = '"' + $ResendSpfValue + '"'
+$dkimTxtValue  = '"' + $ResendDkimValue  + '"'
+$spfTxtValue   = '"' + $ResendSpfValue   + '"'
 $dmarcTxtValue = '"' + $ResendDmarcValue + '"'
-$spfMxRrData = "10 feedback-smtp.eu-west-1.amazonses.com."
+$spfMxRrData   = "10 feedback-smtp.eu-west-1.amazonses.com."
 
-# Отладочный вывод, чтобы убедиться, что нет пробелов
 Write-Host "DEBUG: Base Domain: '$baseDomainRaw'"
 Write-Host "DEBUG: Mail Host:   '$mailHost'"
 Write-Host "DEBUG: DKIM Name:   '$dkimName'"
 
-# Helper function to safely check and update records
 function Ensure-DnsRecord {
   param (
     [string]$Name,
@@ -474,10 +454,8 @@ function Ensure-DnsRecord {
     [string]$Value
   )
 
-  # Trim trailing dot for display, but keep it for gcloud command if needed
   Write-Host "Checking $Type record: $Name"
-    
-  # Get current value (handle potential empty result gracefully)
+
   try {
     $current = (Invoke-Gcloud "dns record-sets list --zone=$DnsZoneName --name=""$Name"" --type=$Type --format=""value(rrdatas[0])""")
     if ($null -ne $current) { $current = $current.Trim() }
@@ -492,32 +470,23 @@ function Ensure-DnsRecord {
       Write-Host "  WhatIf: Would update $Name ($Type) -> $Value"
     }
     else {
-
-      # Start transaction
       Invoke-Gcloud "dns record-sets transaction start --zone=$DnsZoneName" | Out-Null
-            
-      # Remove old if exists
       if ($current) {
         Invoke-Gcloud "dns record-sets transaction remove --zone=$DnsZoneName --name=""$Name"" --type=$Type --ttl=300 ""$current""" | Out-Null
       }
-            
-      # Add new
       Invoke-Gcloud "dns record-sets transaction add --zone=$DnsZoneName --name=""$Name"" --type=$Type --ttl=300 $Value" | Out-Null
-            
-      # Execute
       Invoke-Gcloud "dns record-sets transaction execute --zone=$DnsZoneName" | Out-Null
       Write-Host "  ✔ Record updated."
     }
   }
 }
 
-# Apply updates
-Ensure-DnsRecord -Name $dkimName -Type "TXT" -Value $dkimTxtValue
-Ensure-DnsRecord -Name $spfName -Type "TXT" -Value $spfTxtValue
-Ensure-DnsRecord -Name $spfName -Type "MX" -Value """$spfMxRrData"""
+Ensure-DnsRecord -Name $dkimName  -Type "TXT" -Value $dkimTxtValue
+Ensure-DnsRecord -Name $spfName   -Type "TXT" -Value $spfTxtValue
+Ensure-DnsRecord -Name $spfName   -Type "MX"  -Value """$spfMxRrData"""
 Ensure-DnsRecord -Name $dmarcName -Type "TXT" -Value $dmarcTxtValue
 
-# ---------- Secret Manager: secret for SMTP password ----------
+# ---------- Secret Manager ----------
 Write-Host "`nConfiguring Secret Manager secret '$MailSecretName'…"
 
 $secretListRaw = Invoke-Gcloud "secrets list --format=""value(name)"""
@@ -570,35 +539,39 @@ while (-not $credsReceived) {
 }
 
 if ($credsReceived) {
-  # 2. Ждём, пока:
-  #   - стартовый скрипт скопирует PUBLIC KEY в authorized_keys,
-  #   - поднимет sshd,
-  #   - создаст C:\webapp\system_prep_complete.txt
-  Wait-ForSshAndPrep -InstanceName $InstanceName -Zone $Zone -SshPrivateKeyPath $SshPrivateKeyPath -ExternalIp $externalIp
 
-  # 3. Копируем install_software.ps1 и запускаем его уже точно по ключу
+  # Параметры SSH
+  $ServerUser = "mykola"
+  $ServerIP   = $externalIp
+
+  # Чистим старый host key для этого IP
+  Write-Host "Cleaning old SSH host key for $ServerIP..." -ForegroundColor DarkGray
+  ssh-keygen -R $ServerIP 2>$null | Out-Null
+  ssh-keygen -R "[$ServerIP]:22" 2>$null | Out-Null
+
+  # Ждём prep-маркер
+  Wait-ForSshAndPrep -InstanceName $InstanceName -Zone $Zone -SshPrivateKeyPath $SshPrivateKeyPath -ExternalIp $ServerIP
+
+  # Копируем install_software.ps1
   Write-Host "`nStarting Software Installation..."
   $InstallScriptLocal = Join-Path $PSScriptRoot "install_software.ps1"
     
   if (Test-Path $InstallScriptLocal) {
+
     $scpArgs = @(
       "-i", $SshPrivateKeyPath,
-      "-o", "StrictHostKeyChecking=no",
+      "-o", "StrictHostKeyChecking=accept-new",
       "-o", "ConnectTimeout=30",
       $InstallScriptLocal,
-      "mykola@${externalIp}:C:\Users\mykola\install_software.ps1"
+      "mykola@${ServerIP}:C:\webapp\install_software.ps1"
     )
-
     & scp @scpArgs
 
     Write-Host "Installing VS 2026, GitHub, etc (Remote Exec)..." -ForegroundColor Yellow
 
-    # -----------------------------------------------------------
-    # Запуск install_software.ps1 в фоне на ВМ
-    # -----------------------------------------------------------
-    ssh "$ServerUser@$ServerIP" "powershell.exe -ExecutionPolicy Bypass -NoProfile -File C:\webapp\install_software.ps1"
+    # Запуск install_software.ps1 в фоне
+    Invoke-SSH $ServerUser $ServerIP "powershell -NoProfile -Command `"Start-Process powershell.exe -ArgumentList '-ExecutionPolicy Bypass -NoProfile -File C:\webapp\install_software.ps1' -WindowStyle Hidden`""
 
-    Write-Host "Installing VS 2026, GitHub, etc (Remote Exec)..." -ForegroundColor Yellow
     Write-Host "NOTE: Base software will install now, SQL Server after reboot." -ForegroundColor Yellow
     Write-Host "Logs will be polled from the VM (user_install.log, then sql_install.log)." -ForegroundColor DarkGray
 
@@ -608,7 +581,6 @@ if ($credsReceived) {
     $lastUserLines = @()
 
     while ($true) {
-      # пробуем получить лог, если ssh/лог ещё не готовы — просто ждём
       $userLog = Invoke-SSH $ServerUser $ServerIP "powershell -NoProfile -Command `"if (Test-Path 'C:\webapp\logs\user_install.log') { Get-Content 'C:\webapp\logs\user_install.log' }`"" 2>$null
 
       if ($LASTEXITCODE -ne 0) {
@@ -618,21 +590,19 @@ if ($credsReceived) {
       }
 
       if ($userLog) {
-        # печатаем только новые строки
         if (-not $lastUserLines) {
-          $new = $userLog                 # первый раз — весь файл
+          $new = $userLog
         }
         else {
           $new = Compare-Object -ReferenceObject $lastUserLines -DifferenceObject $userLog |
-          Where-Object { $_.SideIndicator -eq '=>' } |
-          ForEach-Object { $_.InputObject }
+            Where-Object { $_.SideIndicator -eq '=>' } |
+            ForEach-Object { $_.InputObject }
         }
 
         $new | ForEach-Object { Write-Host $_ }
         $lastUserLines = $userLog
       }
 
-      # как только install_software.ps1 записал "INSTALLATION SCRIPT COMPLETED (reboot scheduled)."
       if ($userLog -match 'INSTALLATION SCRIPT COMPLETED') {
         Write-Host "user_install.log: reboot scheduled, waiting for VM to restart..." -ForegroundColor Green
         break
@@ -676,8 +646,8 @@ if ($credsReceived) {
         }
         else {
           $new = Compare-Object -ReferenceObject $lastSqlLines -DifferenceObject $sqlLog |
-          Where-Object { $_.SideIndicator -eq '=>' } |
-          ForEach-Object { $_.InputObject }
+            Where-Object { $_.SideIndicator -eq '=>' } |
+            ForEach-Object { $_.InputObject }
         }
 
         $new | ForEach-Object { Write-Host $_ }

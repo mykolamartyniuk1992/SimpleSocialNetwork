@@ -1,6 +1,6 @@
 # ==============================================================================
 # install_software.ps1
-# Runs via SSH as user 'mykola'. Installs Choco + Tools + VS.
+# Runs via SSH as user 'mykola'. Installs Choco + SQL Server (через Task после ребута).
 # ==============================================================================
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -18,23 +18,31 @@ if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
     # Refreshenv workaround for current session
     $env:Path = $env:Path + ";C:\ProgramData\chocolatey\bin"
 }
+else {
+    Write-Log "Chocolatey already installed, skipping."
+}
 
-# 1. Base Tools & .NET SDKs
+<# ---------------------------------------------------------------------------
+# 1. Base Tools & .NET SDKs  (ОТКЛЮЧЕНО ДЛЯ УСКОРЕНИЯ)
 try {
     Write-Log "Installing base tools and .NET SDKs..."
     # Added dotnet-sdk (latest) + 8 and 9 specific
-    $packages = @("git", "vscode", "sql-server-management-studio", "nodejs-lts", "googlechrome", "dotnet-8.0-sdk", "dotnet-9.0-sdk", "dotnet-sdk")
+    $packages = @(
+        "git", "vscode", "sql-server-management-studio",
+        "nodejs-lts", "googlechrome",
+        "dotnet-8.0-sdk", "dotnet-9.0-sdk", "dotnet-sdk"
+    )
     choco install $packages -y --no-progress
 } catch { Write-Log "Error Choco Base: $_" }
-
-# 2. GitHub Desktop (Clean User Install)
+# ---------------------------------------------------------------------------
+# 2. GitHub Desktop (Clean User Install)  (ОТКЛЮЧЕНО)
 try {
     Write-Log "Installing GitHub Desktop..."
     choco install github-desktop -y --no-progress
     Write-Log "GitHub Desktop installed."
 } catch { Write-Log "Error GitHub: $_" }
-
-# 3. Visual Studio 2026 (v18)
+# ---------------------------------------------------------------------------
+# 3. Visual Studio 2026 (v18)  (ОТКЛЮЧЕНО)
 try {
     $vsPath = "C:\Installers\vs_community_2026.exe"
     if (-not (Test-Path "C:\Installers")) { New-Item -Type Directory "C:\Installers" | Out-Null }
@@ -51,8 +59,8 @@ try {
         Write-Log "VS Install finished with code: $($p.ExitCode)"
     } else { Write-Log "ERROR: VS installer too small." }
 } catch { Write-Log "Error VS: $_" }
-
-# 4. Shortcuts
+# ---------------------------------------------------------------------------
+# 4. Shortcuts  (ОТКЛЮЧЕНО)
 try {
     Write-Log "Creating Shortcuts..."
     $WshShell = New-Object -comObject WScript.Shell
@@ -77,8 +85,9 @@ try {
         Write-Log "SSMS path not found, skipping SSMS shortcut."
     }
 } catch { }
+# --------------------------------------------------------------------------- #>
 
-Write-Log "Base software installation (without SQL Server 2022) COMPLETE."
+Write-Log "Base stage COMPLETE (Chocolatey only, no extra tools)."
 
 # 5. Scheduled Task: install SQL Server 2022 after reboot
 try {
@@ -111,8 +120,8 @@ Write-Log "=== STARTING SQL SERVER 2022 INSTALL ==="
 
 # 1) Install SQL Server 2022
 $choco = "C:\ProgramData\chocolatey\bin\choco.exe"
-Write-Log "Running: $choco install sql-server-2022 ..."
-& $choco install sql-server-2022 -y --no-progress --params "'/IgnorePendingReboot'"
+Write-Log "Running: $choco install sql-server-2022 (BUILTIN\Administrators as sysadmin) ..."
+& $choco install sql-server-2022 -y --no-progress --params "'/IgnorePendingReboot /SQLSYSADMINACCOUNTS=\"BUILTIN\Administrators\"'"
 Write-Log "Choco install finished with exit code $LASTEXITCODE"
 
 # 2) Wait for SQL service
@@ -200,12 +209,7 @@ try {
     exit -1
 }
 
-# 7. Планируем перезагрузку
-try {
-    Write-Log "Scheduling reboot in 60 seconds..."
-    Start-Process -FilePath "shutdown.exe" -ArgumentList "/r /t 60 /c `"Reboot after base software install`"" -WindowStyle Hidden
-} catch {
-    Write-Log "Error scheduling reboot: $_"
-}
+Write-Log "Rebooting via Restart-Computer..."
+Restart-Computer -Force
 
 Write-Log "INSTALLATION SCRIPT COMPLETED (reboot scheduled)."

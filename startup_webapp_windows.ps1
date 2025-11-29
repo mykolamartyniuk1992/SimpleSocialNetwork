@@ -78,8 +78,17 @@ try {
         if ($conf -notmatch "StrictModes no") { Set-Content $ConfigPath ($conf + $extra) -Encoding UTF8 }
     }
 
-    # Restart Service (Critical)
-    Restart-Service sshd -Force
+    # Restart Service (Critical) + автозапуск на будущих перезагрузках
+    $svc = Get-Service sshd -ErrorAction SilentlyContinue
+    if ($svc) {
+        # Важно: чтобы при каждом ребуте sshd стартовал сам
+        if ($svc.StartType -ne 'Automatic') {
+            Set-Service sshd -StartupType Automatic
+        }
+
+        Restart-Service sshd -Force
+    }
+
     netsh advfirewall firewall add rule name="SSH" dir=in action=allow protocol=TCP localport=22 | Out-Null
 
     # 3. Marker

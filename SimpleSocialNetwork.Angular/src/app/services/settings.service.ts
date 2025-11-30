@@ -19,23 +19,29 @@ export class SettingsService {
   constructor(private http: HttpClient) {
     // Загрузка apiUrl из конфиг-файла assets/appconfig.json
     const localApiUrl = localStorage.getItem('apiUrl');
+    console.log('[SettingsService] localStorage apiUrl:', localApiUrl);
     if (localApiUrl) {
       this._apiUrl = localApiUrl;
       this._configLoaded = true;
+      console.log('[SettingsService] Using apiUrl from localStorage:', this._apiUrl);
     } else {
+      console.log('[SettingsService] No apiUrl in localStorage, loading config...');
       this.loadAppConfig();
     }
   }
 
   private loadAppConfig(): void {
     const configFile = environment.production ? '/assets/appconfig.production.json' : '/assets/appconfig.json';
+    console.log('[SettingsService] Loading config file:', configFile, '| environment.production =', environment.production);
     this.http.get<{ apiUrl: string }>(configFile).subscribe({
       next: (config) => {
+        console.log('[SettingsService] Config loaded:', config);
         this._apiUrl = config.apiUrl;
         this._configLoaded = true;
         this._connectionError$.next(false);
       },
-      error: () => {
+      error: (err) => {
+        console.error('[SettingsService] Failed to load config:', configFile, err);
         // Не присваиваем _apiUrl и _configLoaded, если не удалось загрузить конфиг
         this._connectionError$.next(true);
       }

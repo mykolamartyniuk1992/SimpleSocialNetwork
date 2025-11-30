@@ -32,6 +32,7 @@ builder.Services.AddDbContext<SimpleSocialNetworkDbContext>(opt =>
 builder.Services.AddScoped<IRepository<ModelProfile>, ModelProfileRepository>();
 builder.Services.AddScoped<IRepository<ModelFeed>, ModelFeedRepository>();
 builder.Services.AddScoped<IRepository<ModelLike>, ModelLikeRepository>();
+    builder.Services.AddScoped<IRepository<ModelSettings>, ModelSettingsRepository>();
 builder.Services.AddScoped<IModelProfileService, ModelProfileService>();
 builder.Services.AddScoped<IModelFeedService, ModelFeedService>();
 builder.Services.AddScoped<IsAuthenticatedAttribute>();

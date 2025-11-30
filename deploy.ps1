@@ -4,7 +4,8 @@
 # ==============================================================================
 
 param(
-    [string]$ProjectId = "norse-strata-476814-j9"
+    [string]$ProjectId,
+    [switch]$ResetDatabase  # по умолчанию $false, нужно вызвать -ResetDatabase
 )
 
 $ErrorActionPreference = 'Stop'
@@ -186,6 +187,35 @@ function Watch-RemoteLog {
     }
 }
 
+# --- Опциональный полный ресет базы данных перед деплоем --------------------
+if ($ResetDatabase) {
+    Write-Host ""
+    Write-Host "⚠️  WARNING: FULL DATABASE RESET ENABLED!" -ForegroundColor Red
+    Write-Host "    Target DB: SimpleSocialNetwork on remote SQL Server (localhost)" -ForegroundColor Red
+    Write-Host "    The database will be DROPPED and recreated on the remote server." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Press ANY key within 10 seconds to CANCEL database wipe..." -ForegroundColor Yellow
+
+    $cancel = $false
+
+    for ($i = 10; $i -ge 1; $i--) {
+        if ($Host.UI.RawUI.KeyAvailable) {
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+            $cancel = $true
+            break
+        }
+        Write-Host ("  Wiping DB in {0} sec..." -f $i)
+        Start-Sleep -Seconds 1
+    }
+
+    if ($cancel) {
+        Write-Host "Database wipe cancelled by user. Continuing deploy WITHOUT dropping DB." -ForegroundColor Green
+        $ResetDatabase = $false
+    }
+    else {
+        Write-Host "Database wipe confirmed (no key pressed). The DB will be dropped on the remote host." -ForegroundColor Red
+    }
+}
 
 Write-Host "🚀 STARTING DEPLOYMENT to $ServerIP..." -ForegroundColor Green
 
@@ -432,6 +462,36 @@ $RemoteBlock = {
         $caddySvc = Get-Service $CaddyService -ErrorAction SilentlyContinue
         Write-Log "   [Remote] Caddy service status after ensure: $($caddySvc.Status)"
 
+        if ($ResetDatabase) {
+            Write-Log "   [Remote] ResetDatabase flag = TRUE. Dropping and recreating database 'SimpleSocialNetwork'..."
+            try {
+                $tsql = @"
+IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'SimpleSocialNetwork')
+BEGIN
+    ALTER DATABASE [SimpleSocialNetwork] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE [SimpleSocialNetwork];
+END;
+CREATE DATABASE [SimpleSocialNetwork];
+"@
+
+                $possibleSqlcmd = @(
+                    "C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\sqlcmd.exe",
+                    "C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\160\Tools\Binn\sqlcmd.exe",
+                    "sqlcmd.exe"
+                )
+
+                $sqlcmd = $possibleSqlcmd | Where-Object { Test-Path $_ } | Select-Object -First 1
+                if (-not $sqlcmd) { throw "sqlcmd.exe not found" }
+
+                & $sqlcmd -E -S "localhost" -d "master" -Q $tsql
+                Write-Log "   [Remote] Database 'SimpleSocialNetwork' dropped and recreated."
+            }
+            catch {
+                Write-Log "   [Remote] ERROR while resetting database: $_"
+                throw
+            }
+        }
+
         # --- DB migrations ---------------------------------------------------
         Write-Log "   [Remote] Running EF migrations..."
         Set-Location $ApiRoot
@@ -472,11 +532,14 @@ $RemoteBlock = {
     }
 }
 
+$resetDbLiteral = if ($ResetDatabase) { '$true' } else { '$false' }
+
 $ScriptContent = @"
 `$ExeName        = '$ApiExeName'
 `$DomainName     = '$DomainName'
 `$AdminEmail     = '$AdminEmail'
 `$RemoteLogPath  = '$RemoteDeployLogPath'
+`$ResetDatabase  = $resetDbLiteral
 
 $($RemoteBlock.ToString())
 "@

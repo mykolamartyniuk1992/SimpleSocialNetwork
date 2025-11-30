@@ -9,6 +9,8 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
 {
     public interface IModelProfileService
     {
+        Task<int> GetDefaultMessageLimitAsync();
+        Task SetDefaultMessageLimitAsync(int newLimit);
         Task<(int Id, string Token, bool IsAdmin, string Name, string PhotoPath, bool Verified, int? MessagesLeft)?> LoginAsync(string email, string password);
 
         bool IsRegistered(string name, string password);

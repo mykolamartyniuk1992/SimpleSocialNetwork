@@ -131,32 +131,41 @@ export class AdminComponent implements OnInit {
       this.saving = true;
       const newLimit = this.messageLimitForm.value.messageLimit;
       
-      // Call API to update all existing unverified users and save to config
+      // Сначала обновляем лимит для всех unverified пользователей
       this.http.post(`${environment.apiUrl}/profile/updatemessagelimits`, { messageLimit: newLimit })
         .subscribe({
           next: () => {
-            this.defaultMessageLimit = newLimit;
-            
-            this.saving = false;
-            this.snackBar.open(`Message limit set to ${newLimit} for all unverified users`, 'Close', {
-              duration: 4000,
-              horizontalPosition: 'center',
-              verticalPosition: 'top'
-            });
+            // Затем обновляем defaultMessageLimit в конфиге
+            this.http.post(`${environment.apiUrl}/config/setdefaultmessagelimit`, { defaultMessageLimit: newLimit })
+              .subscribe({
+                next: () => {
+                  this.defaultMessageLimit = newLimit;
+                  this.saving = false;
+                  this.snackBar.open(`Message limit set to ${newLimit} for all unverified users`, 'Close', {
+                    duration: 4000,
+                    horizontalPosition: 'center',
+                    verticalPosition: 'top'
+                  });
+                },
+                error: (error) => {
+                  this.saving = false;
+                  const errorMessage = error.error?.message || error.message || 'Failed to update default message limit in config';
+                  this.snackBar.open(errorMessage, 'Close', {
+                    horizontalPosition: 'center',
+                    verticalPosition: 'top',
+                    panelClass: ['error-snackbar']
+                  });
+                }
+              });
           },
           error: (error) => {
             console.error('Failed to update message limits', error);
             this.saving = false;
-            
-            // Extract error message and stack trace from response
             const errorMessage = error.error?.message || error.message || 'Failed to update message limits';
             const stackTrace = error.error?.stackTrace || '';
-            
-            // Display error with stack trace
             const fullErrorMessage = stackTrace 
               ? `${errorMessage}\n\nStack Trace:\n${stackTrace}`
               : errorMessage;
-            
             this.snackBar.open(fullErrorMessage, 'Close', {
               horizontalPosition: 'center',
               verticalPosition: 'top',

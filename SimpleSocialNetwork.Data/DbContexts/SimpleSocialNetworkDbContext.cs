@@ -13,6 +13,7 @@ public class SimpleSocialNetworkDbContext : DbContext
     public DbSet<ModelProfile> profiles => Set<ModelProfile>();
     public DbSet<ModelFeed>    feed     => Set<ModelFeed>();
     public DbSet<ModelLike>    likes    => Set<ModelLike>();
+    public DbSet<ModelSettings> settings => Set<ModelSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -21,5 +22,6 @@ public class SimpleSocialNetworkDbContext : DbContext
         modelBuilder.ApplyConfiguration(new ConfigProfile());
         modelBuilder.ApplyConfiguration(new ConfigFeed());
         modelBuilder.ApplyConfiguration(new ConfigLike());
+        modelBuilder.ApplyConfiguration(new ConfigSettings());
     }
 }

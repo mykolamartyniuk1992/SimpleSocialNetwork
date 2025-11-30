@@ -143,6 +143,23 @@ namespace SimpleSocialNetwork.Data.Migrations
             Console.WriteLine($"Password: {testPassword}");
             Console.WriteLine($"Messages Left: 100");
             Console.WriteLine("============================================");
+
+            // Create settings table for global config
+            migrationBuilder.CreateTable(
+                name: "settings",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    DefaultMessageLimit = table.Column<int>(type: "int", nullable: false, defaultValue: 100)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_settings", x => x.Id);
+                });
+
+            // Insert initial value
+            migrationBuilder.Sql("INSERT INTO settings (DefaultMessageLimit) VALUES (100)");
         }
 
         /// <inheritdoc />

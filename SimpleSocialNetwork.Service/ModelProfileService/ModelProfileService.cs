@@ -14,17 +14,40 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
 {
     public class ModelProfileService : IModelProfileService
     {
+        private IRepository<ModelSettings> settingsRepo;
         private IRepository<ModelProfile> profileRepo;
         private IRepository<ModelFeed> feedRepo;
         private IRepository<ModelLike> likeRepo;
         private readonly IConfiguration _configuration;
 
-        public ModelProfileService(IRepository<ModelProfile> profileRepo, IRepository<ModelFeed> feedRepo, IRepository<ModelLike> likeRepo, IConfiguration configuration)
+        public ModelProfileService(
+            IRepository<ModelProfile> profileRepo,
+            IRepository<ModelFeed> feedRepo,
+            IRepository<ModelLike> likeRepo,
+            IRepository<ModelSettings> settingsRepo,
+            IConfiguration configuration)
         {
             this.profileRepo = profileRepo;
             this.feedRepo = feedRepo;
             this.likeRepo = likeRepo;
             _configuration = configuration;
+            this.settingsRepo = settingsRepo;
+        }
+
+        public async Task<int> GetDefaultMessageLimitAsync()
+        {
+            var settings = await settingsRepo.FirstOrDefaultAsync(s => s.Id == 1);
+            return settings?.DefaultMessageLimit ?? 100;
+        }
+
+        public async Task SetDefaultMessageLimitAsync(int newLimit)
+        {
+            var settings = await settingsRepo.FirstOrDefaultAsync(s => s.Id == 1);
+            if (settings != null)
+            {
+                settings.DefaultMessageLimit = newLimit;
+                await settingsRepo.UpdateAsync(settings);
+            }
         }
 
         public async Task<bool> VerifyEmailAsync(string email, string hash)

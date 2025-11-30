@@ -17,7 +17,7 @@ namespace SimpleSocialNetwork.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.9")
+                .HasAnnotation("ProductVersion", "9.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -148,6 +148,22 @@ namespace SimpleSocialNetwork.Data.Migrations
                         .HasFilter("[IsAdmin] = 1");
 
                     b.ToTable("profiles", (string)null);
+                });
+
+            modelBuilder.Entity("SimpleSocialNetwork.Models.ModelSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DefaultMessageLimit")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("settings", (string)null);
                 });
 
             modelBuilder.Entity("SimpleSocialNetwork.Models.ModelFeed", b =>

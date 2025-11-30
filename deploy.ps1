@@ -4,7 +4,6 @@
 # ==============================================================================
 
 param(
-    [string]$ProjectId,
     [switch]$ResetDatabase  # по умолчанию $false, нужно вызвать -ResetDatabase
 )
 
@@ -266,9 +265,6 @@ $json.ConnectionStrings.Default = "Server=localhost;Database=SimpleSocialNetwork
 $corsOrigins = @("https://$DomainName", "http://localhost:8080", "http://127.0.0.1:8080")
 if ($ApiUrl -ne "") { $corsOrigins += $ApiUrl }
 $json.AllowedOrigins = $corsOrigins
-
-$json.Email.ProjectId = $ProjectId
-Write-Host "   -> Set Email.ProjectId to $ProjectId" -ForegroundColor Green
 
 if ($json.Kestrel) { $json.PSObject.Properties.Remove('Kestrel') }
 

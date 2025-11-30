@@ -17,7 +17,7 @@ if (string.Equals(env, "Local", StringComparison.OrdinalIgnoreCase))
 {
     builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 }
-builder.Services.AddScoped<EmailService>();
+builder.Services.AddScoped<EmailService>(); // DI will resolve IModelProfileService automatically
 
 builder.Services.AddControllersWithViews(options =>
 {

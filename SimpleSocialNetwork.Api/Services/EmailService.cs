@@ -1,28 +1,28 @@
-
-using Microsoft.Extensions.Configuration;
+using SimpleSocialNetwork.Service.ModelProfileService;
 using Google.Cloud.SecretManager.V1;
 using Resend;
-using System.Threading.Tasks;
 
 namespace SimpleSocialNetwork.Api.Services
 {
     public class EmailService
     {
 
-        private readonly IConfiguration _configuration;
+        private readonly IModelProfileService _profileService;
         private readonly string? _resendApiKey;
         private readonly string? _fromEmail;
         private readonly IResend _resendClient;
 
 
-        public EmailService(IConfiguration configuration)
+        public EmailService(IModelProfileService profileService, IConfiguration configuration)
         {
-            _configuration = configuration;
-            var projectId = _configuration["Email:ProjectId"];
+            _profileService = profileService;
+            // Получаем ProjectId из базы (settings)
+            var settings = _profileService.GetSettingsAsync().GetAwaiter().GetResult();
+            var projectId = settings?.ProjectId;
             if (string.IsNullOrEmpty(projectId))
-                throw new ArgumentNullException(nameof(projectId), "ProjectId is not configured in appsettings.");
+                throw new ArgumentNullException(nameof(projectId), "ProjectId is not configured in database.");
             _resendApiKey = GetSecret($"projects/{projectId}/secrets/resend-email-api-key/versions/latest");
-            _fromEmail = _configuration["Email:FromEmail"];
+            _fromEmail = configuration["Email:FromEmail"];
             if (string.IsNullOrEmpty(_resendApiKey))
                 throw new ArgumentNullException(nameof(_resendApiKey), "Resend API key is not configured.");
             if (string.IsNullOrEmpty(_fromEmail))

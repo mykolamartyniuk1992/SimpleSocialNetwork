@@ -90,6 +90,7 @@ export class LoginComponent {
           next: (response) => {
             console.log('Login response:', response);
             console.log('User name from response:', response.name);
+            console.log('Photo URL from response:', response.photoUrl);
             this.authService.setAuthData(response.id, response.token, response.isAdmin, response.name, response.photoUrl, response.verified, response.messagesLeft);
             
             // Always redirect to feed

@@ -50,7 +50,11 @@ export class AuthService {
   }
 
   getPhotoUrl(): string | null {
-    return localStorage.getItem(this.PHOTO_URL_KEY);
+    const value = localStorage.getItem(this.PHOTO_URL_KEY);
+    if (!value || value === 'null' || value === 'undefined' || value === '') {
+      return null;
+    }
+    return value;
   }
 
   isAdmin(): boolean {

@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { SettingsService } from './settings.service';
 
 @Injectable({
   providedIn: 'root'
@@ -12,6 +14,7 @@ export class AuthService {
   private readonly MESSAGES_LEFT_KEY = 'messages_left';
   private readonly USER_NAME_KEY = 'user_name';
   private readonly PHOTO_URL_KEY = 'photo_url';
+  constructor(private http: HttpClient, private settingsService: SettingsService) {}
 
   private profileUpdated = new Subject<void>();
   profileUpdated$ = this.profileUpdated.asObservable();
@@ -98,7 +101,12 @@ export class AuthService {
     this.profileUpdated.next();
   }
 
-  logout(): void {
+  async logout(): Promise<void> {
+    try {
+      await this.http.post(`${this.settingsService.apiUrl}/auth/logout`, {}, { withCredentials: true }).toPromise();
+    } catch (e) {
+      // Ignore errors, proceed to clear localStorage anyway
+    }
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_ID_KEY);
     localStorage.removeItem(this.IS_ADMIN_KEY);

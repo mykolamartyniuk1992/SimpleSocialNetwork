@@ -127,8 +127,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.router.navigate(['/account-settings']);
   }
 
-  logout(): void {
-    this.authService.logout();
+  async logout(): Promise<void> {
+    await this.authService.logout();
     this.router.navigate(['/login']);
   }
 }

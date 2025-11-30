@@ -110,10 +110,6 @@ export class FeedComponent implements OnInit, OnDestroy {
     private dialog: MatDialog,
     private cdr: ChangeDetectorRef
   ) {
-      onPhotoError(feed: FeedItem) {
-        feed.profilePhotoPath = '';
-        this.cdr.detectChanges();
-      }
     this.postForm = this.fb.group({
       text: ['', [Validators.required, Validators.maxLength(500)]]
     });

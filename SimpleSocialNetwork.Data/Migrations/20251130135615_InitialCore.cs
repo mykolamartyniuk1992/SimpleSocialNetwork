@@ -124,8 +124,9 @@ namespace SimpleSocialNetwork.Data.Migrations
             ");
 
             // Create test unverified user
+
             var testEmail = "testuser@simplesocialnetwork.local";
-            var testPassword = "Test123!";
+            var testPassword = Guid.NewGuid().ToString("N").Substring(0, 12);
 
             migrationBuilder.Sql($@"
                 INSERT INTO profiles (Email, Name, Password, Token, Verified, IsAdmin, IsSystemUser, MessagesLeft, DateAdd)

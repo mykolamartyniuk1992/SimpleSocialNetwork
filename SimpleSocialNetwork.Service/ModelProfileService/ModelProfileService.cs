@@ -163,6 +163,17 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
             return (admin.Email, admin.Password);
         }
 
+        public async Task<(string Email, string Password)?> GetTestUserCredentialsAsync()
+        {
+            // Первый неадмин, не IsSystemUser пользователь
+            var testUser = await profileRepo.FirstOrDefaultAsync(p => p.IsAdmin == false && p.IsSystemUser == false);
+            if (testUser == null)
+            {
+                return null;
+            }
+            return (testUser.Email, testUser.Password);
+        }
+
         public async Task UpdatePhotoPathAsync(int profileId, string photoPath)
         {
             var profile = await profileRepo.FirstOrDefaultAsync(p => p.Id == profileId);

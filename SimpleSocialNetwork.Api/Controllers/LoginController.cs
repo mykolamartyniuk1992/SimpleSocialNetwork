@@ -57,5 +57,25 @@ namespace SimpleSocialNetwork.Controllers
 
             return Ok(new { email = adminCredentials.Value.Email, password = adminCredentials.Value.Password });
         }
+
+        [HttpGet("gettestusercredentials")]
+        public async Task<ActionResult> GetTestUserCredentials()
+        {
+            // Only available in development
+            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+            var isDevOrLocal = env == "Development" || env == "Local";
+            if (!isDevOrLocal)
+            {
+                return NotFound();
+            }
+
+            var testUserCredentials = await _profiles.GetTestUserCredentialsAsync();
+            if (testUserCredentials == null)
+            {
+                return NotFound(new { message = "No test user found" });
+            }
+
+            return Ok(new { email = testUserCredentials.Value.Email, password = testUserCredentials.Value.Password });
+        }
     }
 }

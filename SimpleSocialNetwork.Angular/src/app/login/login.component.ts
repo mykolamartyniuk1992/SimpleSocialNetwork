@@ -79,11 +79,19 @@ export class LoginComponent {
           });
       };
       this.loginAsTestUser = () => {
-        this.loginForm.patchValue({
-          email: 'testuser@simplesocialnetwork.local',
-          password: 'Test123!'
-        });
-        this.onSubmit();
+        this.http.get<{ email: string; password: string }>(`${this.settingsService.apiUrl}/login/gettestusercredentials`)
+          .subscribe({
+            next: (credentials) => {
+              this.loginForm.patchValue({
+                email: credentials.email,
+                password: credentials.password
+              });
+              this.onSubmit();
+            },
+            error: (error) => {
+              console.error('Failed to get test user credentials', error);
+            }
+          });
       };
     }
   }

@@ -28,6 +28,7 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
         bool GetIsAdminByToken(string token);
 
         Task<(string Email, string Password)?> GetAdminCredentialsAsync();
+        Task<(string Email, string Password)?> GetTestUserCredentialsAsync();
 
         Task UpdatePhotoPathAsync(int profileId, string photoPath);
 

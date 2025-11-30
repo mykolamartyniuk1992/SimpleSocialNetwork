@@ -8,6 +8,8 @@ namespace SimpleSocialNetwork.Data.Migrations
     /// <inheritdoc />
     public partial class InitialCore : Migration
     {
+        int defaultMessageLimit = 5;
+
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
 
@@ -127,7 +129,7 @@ namespace SimpleSocialNetwork.Data.Migrations
 
             migrationBuilder.Sql($@"
                 INSERT INTO profiles (Email, Name, Password, Token, Verified, IsAdmin, IsSystemUser, MessagesLeft, DateAdd)
-                VALUES ('{testEmail}', 'TestUser', '{testPassword}', NULL, 0, 0, 1, 100, SYSUTCDATETIME())
+                VALUES ('{testEmail}', 'TestUser', '{testPassword}', NULL, 0, 0, 1, {defaultMessageLimit}, SYSUTCDATETIME())
             ");
 
             // Output passwords to console
@@ -163,7 +165,7 @@ namespace SimpleSocialNetwork.Data.Migrations
             migrationBuilder.InsertData(
                 table: "settings",
                 columns: new[] { "Id", "DefaultMessageLimit", "ProjectId" },
-                values: new object[] { 1, 5, "norse-strata-476814-j9" }
+                values: new object[] { 1, defaultMessageLimit, "norse-strata-476814-j9" }
             );
         }
 

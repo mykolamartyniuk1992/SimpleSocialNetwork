@@ -284,7 +284,16 @@ export class FeedComponent implements OnInit, OnDestroy {
     return !this.authService.isVerified() && this.messagesLeft !== null && this.messagesLeft <= 0;
   }
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
+    // Дождаться загрузки конфига
+    if ((this.settingsService as any).configLoadedPromise) {
+      await (this.settingsService as any).configLoadedPromise;
+    } else {
+      // Fallback: ждём появления apiUrl
+      while (!this.settingsService.apiUrl) {
+        await new Promise(res => setTimeout(res, 50));
+      }
+    }
     this.loadFeed();
     this.startSignalRConnection();
 

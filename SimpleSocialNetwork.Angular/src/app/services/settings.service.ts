@@ -33,8 +33,21 @@ export class SettingsService {
   private loadAppConfig(): void {
     const configFile = environment.production ? '/assets/appconfig.production.json' : '/assets/appconfig.json';
     console.log('[SettingsService] Loading config file:', configFile, '| environment.production =', environment.production);
-    this.http.get<{ apiUrl: string }>(configFile).subscribe({
-      next: (config) => {
+    this.http.get(configFile, { responseType: 'text' }).subscribe({
+      next: (text) => {
+        let config: any = null;
+        try {
+          config = JSON.parse(text);
+        } catch (e) {
+          console.error('[SettingsService] Failed to parse config JSON:', e, text);
+          this._connectionError$.next(true);
+          return;
+        }
+        if (!config.apiUrl) {
+          console.error('[SettingsService] Config loaded but apiUrl missing:', config);
+          this._connectionError$.next(true);
+          return;
+        }
         console.log('[SettingsService] Config loaded:', config);
         this._apiUrl = config.apiUrl;
         this._configLoaded = true;
@@ -62,7 +75,15 @@ export class SettingsService {
 
   get apiUrl(): string {
     // localStorage имеет приоритет, иначе — из appconfig.json, fallback — дефолт
-    return localStorage.getItem('apiUrl') || this._apiUrl;
+    const local = localStorage.getItem('apiUrl');
+    if (local) {
+      return local;
+    }
+    if (this._apiUrl) {
+      return this._apiUrl;
+    }
+    console.warn('[SettingsService] apiUrl fallback to default (empty string)');
+    return '';
   }
 
   async loadProjectId(): Promise<void> {

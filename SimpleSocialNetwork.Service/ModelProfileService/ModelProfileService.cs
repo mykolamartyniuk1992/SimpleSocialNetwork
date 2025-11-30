@@ -43,7 +43,9 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
         public async Task<int> GetDefaultMessageLimitAsync()
         {
             var settings = await settingsRepo.FirstOrDefaultAsync(s => s.Id == 1);
-            return settings?.DefaultMessageLimit ?? 100;
+            if (settings == null)
+                throw new InvalidOperationException("Default message limit is not set in the database.");
+            return settings.DefaultMessageLimit;
         }
 
         public async Task SetDefaultMessageLimitAsync(int newLimit)

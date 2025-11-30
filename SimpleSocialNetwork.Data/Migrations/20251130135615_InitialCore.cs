@@ -163,7 +163,7 @@ namespace SimpleSocialNetwork.Data.Migrations
             migrationBuilder.InsertData(
                 table: "settings",
                 columns: new[] { "Id", "DefaultMessageLimit", "ProjectId" },
-                values: new object[] { 1, 100, "norse-strata-476814-j9" }
+                values: new object[] { 1, 5, "norse-strata-476814-j9" }
             );
         }
 

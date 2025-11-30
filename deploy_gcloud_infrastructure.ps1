@@ -604,6 +604,52 @@ else {
   }
 }
 
+# ---------- SERVICE ACCOUNT + JSON KEY FOR SECRET MANAGER (ADC via GOOGLE_APPLICATION_CREDENTIALS) ----------
+# создаём сервис-аккаунт, выдаём роль Secret Manager Secret Accessor и генерируем JSON-ключ
+$SaId       = "simple-social-email-sa"
+$SaEmail    = "$SaId@$Project.iam.gserviceaccount.com"
+$SaKeyLocal = Join-Path $PSScriptRoot "gcp-email-sa-key.json"
+
+Write-Host "`nConfiguring service account '$SaEmail' for Secret Manager…"
+
+# 1) сервис-аккаунт
+$saListRaw = Invoke-Gcloud "iam service-accounts list --project=$Project --format=""value(email)"""
+$saEmails  = $saListRaw -split "`r?`n" | Where-Object { $_ -ne "" }
+
+if ($saEmails -contains $SaEmail) {
+    Write-Host "Service account '$SaEmail' already exists."
+} else {
+    if ($WhatIf) {
+        Write-Host "WhatIf: would create service account '$SaEmail'."
+    } else {
+        Write-Host "Creating service account '$SaEmail'…"
+        Invoke-Gcloud "iam service-accounts create $SaId --project=$Project --display-name=""Simple Social Email SA""" | Out-Null
+        Write-Host "✔ Service account '$SaEmail' created."
+    }
+}
+
+# 2) выдаём роль Secret Manager Secret Accessor на проект
+if ($WhatIf) {
+    Write-Host "WhatIf: would bind roles/secretmanager.secretAccessor for $SaEmail."
+} else {
+    Write-Host "Binding roles/secretmanager.secretAccessor for $SaEmail on project $Project…"
+    Invoke-Gcloud "projects add-iam-policy-binding $Project --member=""serviceAccount:$SaEmail"" --role=""roles/secretmanager.secretAccessor""" | Out-Null
+    Write-Host "✔ IAM binding applied."
+}
+
+# 3) JSON-ключ (локальный файл)
+if ($WhatIf) {
+    Write-Host "WhatIf: would create key file $SaKeyLocal."
+} else {
+    if (Test-Path $SaKeyLocal) {
+        Write-Host "Key file $SaKeyLocal already exists locally, keeping it."
+    } else {
+        Write-Host "Creating new JSON key for $SaEmail -> $SaKeyLocal…"
+        Invoke-Gcloud "iam service-accounts keys create `"$SaKeyLocal`" --iam-account=$SaEmail" | Out-Null
+        Write-Host "✔ Key file created."
+    }
+}
+
 # --- 5. POST DEPLOY: WAIT FOR WINDOWS CREDENTIALS ---
 Write-Host "`n------------------------------------------------------"
 Write-Host "Waiting for Windows to boot (polling credentials)..."
@@ -656,7 +702,7 @@ if ($credsReceived) {
         )
         & scp @scpArgs
 
-        # 1) Копируем скрипт install_software_launcher.ps1 на ВМ в C:\webapp
+        # 1b) Копируем скрипт install_software_launcher.ps1 на ВМ в C:\webapp
         $scpArgs = @(
             "-i", $SshPrivateKeyPath,
             "-o", "StrictHostKeyChecking=no",
@@ -665,6 +711,27 @@ if ($credsReceived) {
             "mykola@${externalIp}:C:\webapp\install_software_launcher.ps1"
         )
         & scp @scpArgs
+
+        # 1c) Копируем JSON-ключ сервис-аккаунта на ВМ и выставляем GOOGLE_APPLICATION_CREDENTIALS
+        if (Test-Path $SaKeyLocal) {
+            Write-Host "Copying service account key to VM..."
+            $scpArgs = @(
+                "-i", $SshPrivateKeyPath,
+                "-o", "StrictHostKeyChecking=no",
+                "-o", "ConnectTimeout=30",
+                $SaKeyLocal,
+                "mykola@${externalIp}:C:\webapp\gcp-email-sa.json"
+            )
+            & scp @scpArgs
+
+            $ServerUser = "mykola"
+            $ServerIP   = $externalIp
+
+            Write-Host "Setting system-wide GOOGLE_APPLICATION_CREDENTIALS on VM..."
+            $remoteEnvCmd = 'powershell -NoProfile -Command "setx GOOGLE_APPLICATION_CREDENTIALS ''C:\webapp\gcp-email-sa.json'' /M"'
+            Invoke-SSH $ServerUser $ServerIP $remoteEnvCmd
+            Write-Host "GOOGLE_APPLICATION_CREDENTIALS configured."
+        }
 
         Write-Host "Installing VS 2026, GitHub, etc (Remote Exec)..." -ForegroundColor Yellow
 

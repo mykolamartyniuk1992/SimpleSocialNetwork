@@ -413,11 +413,24 @@ $RemoteBlock = {
 
         $caddySvc = Get-Service $CaddyService -ErrorAction SilentlyContinue
         if (-not $caddySvc) {
+            Write-Log "   [Remote] Caddy service not found, installing via nssm..."
             & $nssmPath install $CaddyService $caddyExe "run" "--config" $CaddyfilePath "--adapter" "caddyfile" 2>$null
         }
 
-        & $nssmPath restart $CaddyService 2>$null
-        Write-Log "   [Remote] Caddy restarted."
+        # перечитаем состояние после возможной установки
+        $caddySvc = Get-Service $CaddyService -ErrorAction SilentlyContinue
+
+        if ($caddySvc -and $caddySvc.Status -ne 'Running') {
+            Write-Log "   [Remote] Caddy service is '$($caddySvc.Status)'. Starting..."
+            & $nssmPath start $CaddyService 2>$null
+        }
+        else {
+            Write-Log "   [Remote] Caddy service already running, restarting..."
+            & $nssmPath restart $CaddyService 2>$null
+        }
+
+        $caddySvc = Get-Service $CaddyService -ErrorAction SilentlyContinue
+        Write-Log "   [Remote] Caddy service status after ensure: $($caddySvc.Status)"
 
         # --- DB migrations ---------------------------------------------------
         Write-Log "   [Remote] Running EF migrations..."

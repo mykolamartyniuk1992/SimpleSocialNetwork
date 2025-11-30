@@ -11,7 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { ImageCropperComponent, ImageCroppedEvent, LoadedImage } from 'ngx-image-cropper';
 import { AuthService } from '../services/auth.service';
-import { environment } from '../../environments/environment';
+import { SettingsService } from '../services/settings.service';
 import { Router } from '@angular/router';
 
 @Component({
@@ -111,7 +111,8 @@ export class AccountSettingsComponent implements OnInit {
     private http: HttpClient,
     private authService: AuthService,
     private dialog: MatDialog,
-    private router: Router
+    private router: Router,
+    private settingsService: SettingsService
   ) {
     this.profileForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]]
@@ -184,7 +185,7 @@ export class AccountSettingsComponent implements OnInit {
 
   getFullPhotoUrl(photoPath: string): string {
     if (photoPath.startsWith('http')) return photoPath;
-    const baseUrl = environment.apiUrl.replace('/api', '');
+    const baseUrl = this.settingsService.apiUrl.replace('/api', '');
     // Add timestamp to bypass browser cache
     const separator = photoPath.includes('?') ? '&' : '?';
     return `${baseUrl}${photoPath}${separator}t=${Date.now()}`;
@@ -231,7 +232,7 @@ export class AccountSettingsComponent implements OnInit {
       formData.append('photo', this.selectedFile);
     }
 
-    this.http.post(`${environment.apiUrl}/profile/updateprofile`, formData)
+    this.http.post(`${this.settingsService.apiUrl}/profile/updateprofile`, formData)
       .subscribe({
         next: (response: any) => {
           // Defer profile updates to avoid change detection errors
@@ -264,7 +265,7 @@ export class AccountSettingsComponent implements OnInit {
       newPassword: this.passwordForm.get('newPassword')?.value
     };
 
-    this.http.post(`${environment.apiUrl}/profile/changepassword`, data)
+    this.http.post(`${this.settingsService.apiUrl}/profile/changepassword`, data)
       .subscribe({
         next: () => {
           alert('Password changed successfully!');
@@ -290,7 +291,7 @@ export class AccountSettingsComponent implements OnInit {
 
     this.deleting = true;
 
-    this.http.delete(`${environment.apiUrl}/profile/deleteownaccount`)
+    this.http.delete(`${this.settingsService.apiUrl}/profile/deleteownaccount`)
       .subscribe({
         next: () => {
           this.authService.logout();

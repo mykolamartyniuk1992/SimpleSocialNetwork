@@ -8,6 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../services/auth.service';
+import { SettingsService } from '../services/settings.service';
 import { environment } from '../../environments/environment';
 
 @Component({
@@ -34,7 +35,8 @@ export class LoginComponent {
     private router: Router,
     private http: HttpClient,
     private fb: FormBuilder,
-    private authService: AuthService
+    private authService: AuthService,
+    public settingsService: SettingsService
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -57,7 +59,7 @@ export class LoginComponent {
   ngOnInit() {
     if (this.isDevelopment) {
       this.loginAsAdmin = () => {
-        this.http.get<{ email: string; password: string }>(`${environment.apiUrl}/login/getadmincredentials`)
+        this.http.get<{ email: string; password: string }>(`${this.settingsService.apiUrl}/login/getadmincredentials`)
           .subscribe({
             next: (credentials) => {
               this.loginForm.patchValue({
@@ -85,7 +87,7 @@ export class LoginComponent {
     if (this.loginForm.valid) {
       const { email, password } = this.loginForm.value;
       
-      this.http.post<{ id: number; token: string; isAdmin: boolean; name: string; photoUrl: string; verified: boolean; messagesLeft: number | null }>(`${environment.apiUrl}/login/login`, { email, password })
+      this.http.post<{ id: number; token: string; isAdmin: boolean; name: string; photoUrl: string; verified: boolean; messagesLeft: number | null }>(`${this.settingsService.apiUrl}/login/login`, { email, password })
         .subscribe({
           next: (response) => {
             console.log('Login response:', response);

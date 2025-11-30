@@ -12,7 +12,7 @@ using SimpleSocialNetwork.Data;
 namespace SimpleSocialNetwork.Data.Migrations
 {
     [DbContext(typeof(SimpleSocialNetworkDbContext))]
-    [Migration("20251125165413_InitialCore")]
+    [Migration("20251130135615_InitialCore")]
     partial class InitialCore
     {
         /// <inheritdoc />
@@ -151,6 +151,25 @@ namespace SimpleSocialNetwork.Data.Migrations
                         .HasFilter("[IsAdmin] = 1");
 
                     b.ToTable("profiles", (string)null);
+                });
+
+            modelBuilder.Entity("SimpleSocialNetwork.Models.ModelSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DefaultMessageLimit")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProjectId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("settings", (string)null);
                 });
 
             modelBuilder.Entity("SimpleSocialNetwork.Models.ModelFeed", b =>

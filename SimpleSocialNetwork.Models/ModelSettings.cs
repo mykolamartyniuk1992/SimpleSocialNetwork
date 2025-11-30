@@ -4,11 +4,12 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SimpleSocialNetwork.Models
 {
-        [Table("settings")]
-        public class ModelSettings : IEntity
+    [Table("settings")]
+    public class ModelSettings : IEntity
     {
         [Key]
         public int Id { get; set; }
         public int DefaultMessageLimit { get; set; }
+        public string ProjectId { get; set; }
     }
 }

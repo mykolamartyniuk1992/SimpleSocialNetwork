@@ -34,6 +34,12 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
             this.settingsRepo = settingsRepo;
         }
 
+        public async Task<SimpleSocialNetwork.Models.ModelSettings> GetSettingsAsync()
+        {
+            // Обычно в таблице settings только одна строка с Id = 1
+            return await settingsRepo.FirstOrDefaultAsync(s => s.Id == 1);
+        }
+
         public async Task<int> GetDefaultMessageLimitAsync()
         {
             var settings = await settingsRepo.FirstOrDefaultAsync(s => s.Id == 1);

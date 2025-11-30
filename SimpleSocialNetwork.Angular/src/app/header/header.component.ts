@@ -9,7 +9,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../services/auth.service';
-import { environment } from '../../environments/environment';
+import { SettingsService } from '../services/settings.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -28,6 +28,8 @@ import { Subscription } from 'rxjs';
   styleUrls: ['./header.component.css']
 })
 export class HeaderComponent implements OnInit, OnDestroy {
+  connectionError = false;
+  private connectionErrorSub?: Subscription;
   userName: string = '';
   photoUrl: string | null = null;
   fullPhotoUrl: string = '';
@@ -37,19 +39,23 @@ export class HeaderComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private router: Router,
     private ngZone: NgZone,
-    private http: HttpClient
+    private http: HttpClient,
+    public settingsService: SettingsService
   ) {
     // Subscribe to profile updates
     this.subscription = this.authService.profileUpdated$.subscribe(() => {
       this.loadUserProfile();
     });
     this.loadUserProfile();
+    this.connectionErrorSub = this.settingsService.connectionError$.subscribe(err => {
+      this.connectionError = err;
+    });
   }
 
   ngOnInit(): void {
     // Fetch messagesLeft from backend on initialization
     if (this.authService.isAuthenticated() && !this.authService.isVerified()) {
-      this.http.get<{ messagesLeft: number | null }>(`${environment.apiUrl}/profile/GetCurrentUserMessagesLeft`)
+      this.http.get<{ messagesLeft: number | null }>(`${this.settingsService.apiUrl}/profile/GetCurrentUserMessagesLeft`)
         .subscribe({
           next: (response) => {
             this.authService.updateMessagesLeft(response.messagesLeft);
@@ -63,6 +69,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscription.unsubscribe();
+    this.connectionErrorSub?.unsubscribe();
   }
 
   private loadUserProfile(): void {
@@ -97,7 +104,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private buildFullPhotoUrl(): string {
     const photoUrl = this.photoUrl;
     if (photoUrl && !photoUrl.startsWith('http')) {
-      const apiBase = environment.apiUrl.replace('/api', '');
+      const apiBase = this.settingsService.apiUrl.replace('/api', '');
       const separator = photoUrl.includes('?') ? '&' : '?';
       return `${apiBase}${photoUrl}${separator}t=${Date.now()}`;
     }

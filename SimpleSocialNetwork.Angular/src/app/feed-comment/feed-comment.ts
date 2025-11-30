@@ -18,7 +18,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 
-import { environment } from '../../environments/environment';
+import { SettingsService } from '../services/settings.service';
 import { AuthService } from '../services/auth.service';
 import { LikesDialogComponent } from '../likes-dialog/likes-dialog.component';
 
@@ -105,7 +105,8 @@ export class FeedCommentComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     private authService: AuthService,
     private dialog: MatDialog,
-    private elRef: ElementRef
+    private elRef: ElementRef,
+    private settingsService: SettingsService
   ) {
     this.messagesLeft = this.authService.getMessagesLeft();
   }
@@ -181,7 +182,7 @@ export class FeedCommentComponent implements OnInit, OnDestroy {
       comment.likesLoading = true;
       this.http
         .get<LastLike[]>(
-          `${environment.apiUrl}/feed/getlastlikes/${comment.id}?count=5`
+          `${this.settingsService.apiUrl}/feed/getlastlikes/${comment.id}?count=5`
         )
         .subscribe({
           next: likes => {
@@ -313,7 +314,7 @@ export class FeedCommentComponent implements OnInit, OnDestroy {
       }
 
       this.http
-        .post(`${environment.apiUrl}/feed/dislike`, {
+        .post(`${this.settingsService.apiUrl}/feed/dislike`, {
           id: userLike.id,
           feedId: feed.id
         })
@@ -329,7 +330,7 @@ export class FeedCommentComponent implements OnInit, OnDestroy {
     } else {
       this.http
         .post<{ id: number; feedId: number; profileId: number }>(
-          `${environment.apiUrl}/feed/like`,
+          `${this.settingsService.apiUrl}/feed/like`,
           { feedId: feed.id }
         )
         .subscribe({
@@ -360,7 +361,7 @@ export class FeedCommentComponent implements OnInit, OnDestroy {
 
     this.http
       .get<{ comments: FeedItem[]; totalCount: number }>(
-        `${environment.apiUrl}/feed/getcommentspaginated/${feed.id}?page=${page}&pageSize=${pageSize}`
+        `${this.settingsService.apiUrl}/feed/getcommentspaginated/${feed.id}?page=${page}&pageSize=${pageSize}`
       )
       .subscribe({
         next: response => {
@@ -416,7 +417,7 @@ export class FeedCommentComponent implements OnInit, OnDestroy {
 
     this.http
       .post<{ id: number; messagesLeft: number | null }>(
-        `${environment.apiUrl}/feed/addfeed`,
+        `${this.settingsService.apiUrl}/feed/addfeed`,
         commentData
       )
       .subscribe({
@@ -509,7 +510,7 @@ export class FeedCommentComponent implements OnInit, OnDestroy {
     }
 
     this.http
-      .post(`${environment.apiUrl}/feed/deletefeed`, { id: feed.id })
+      .post(`${this.settingsService.apiUrl}/feed/deletefeed`, { id: feed.id })
       .subscribe({
         next: () => {
           // SignalR всё подправит
@@ -530,7 +531,7 @@ export class FeedCommentComponent implements OnInit, OnDestroy {
   getFullPhotoUrl(photoPath?: string): string {
     if (!photoPath) return '';
     if (photoPath.startsWith('http')) return photoPath;
-    const baseUrl = environment.apiUrl.replace('/api', '');
+    const baseUrl = this.settingsService.apiUrl.replace('/api', '');
     return `${baseUrl}${photoPath}`;
   }
 }

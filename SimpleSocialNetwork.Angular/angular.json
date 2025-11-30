@@ -32,6 +32,16 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "input": "src/assets",
+                "glob": "appconfig.json",
+                "output": "assets"
+              },
+              {
+                "input": "src/assets",
+                "glob": "appconfig.production.json",
+                "output": "assets"
               }
             ],
             "styles": [
@@ -98,6 +108,16 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "input": "src/assets",
+                "glob": "appconfig.json",
+                "output": "."
+              },
+              {
+                "input": "src/assets",
+                "glob": "appconfig.production.json",
+                "output": "."
               }
             ],
             "styles": [

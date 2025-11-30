@@ -17,7 +17,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { environment } from '../../environments/environment';
+import { SettingsService } from '../services/settings.service';
 import { AuthService } from '../services/auth.service';
 import * as signalR from '@microsoft/signalr';
 import { FeedCommentComponent } from '../feed-comment/feed-comment';
@@ -108,7 +108,8 @@ export class FeedComponent implements OnInit, OnDestroy {
     private router: Router,
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private settingsService: SettingsService
   ) {
     this.postForm = this.fb.group({
       text: ['', [Validators.required, Validators.maxLength(500)]]
@@ -187,7 +188,7 @@ export class FeedComponent implements OnInit, OnDestroy {
     (feed as any).popupPosition = top < rect.top ? 'top' : 'bottom';
     if (!feed.lastLikes) {
       feed.likesLoading = true;
-      this.http.get<LastLike[]>(`${environment.apiUrl}/feed/getlastlikes/${feed.id}?count=5`).subscribe({
+      this.http.get<LastLike[]>(`${this.settingsService.apiUrl}/feed/getlastlikes/${feed.id}?count=5`).subscribe({
         next: (likes) => {
           feed.lastLikes = likes;
           feed.likesLoading = false;
@@ -294,7 +295,7 @@ export class FeedComponent implements OnInit, OnDestroy {
 
     // Fetch messagesLeft from backend on feed initialization
     if (this.authService.isAuthenticated() && !this.authService.isVerified()) {
-      this.http.get<{ messagesLeft: number | null }>(`${environment.apiUrl}/profile/GetCurrentUserMessagesLeft`)
+      this.http.get<{ messagesLeft: number | null }>(`${this.settingsService.apiUrl}/profile/GetCurrentUserMessagesLeft`)
         .subscribe({
           next: (response) => {
             this.authService.updateMessagesLeft(response.messagesLeft);
@@ -317,7 +318,7 @@ export class FeedComponent implements OnInit, OnDestroy {
 
   private startSignalRConnection(): void {
     // Remove /api suffix for SignalR hub connection
-    const hubUrl = environment.apiUrl.replace('/api', '') + '/hubs/feed';
+    const hubUrl = this.settingsService.apiUrl.replace('/api', '') + '/hubs/feed';
     this.hubConnection = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, {
         accessTokenFactory: () => this.authService.getToken() || ''
@@ -442,7 +443,7 @@ export class FeedComponent implements OnInit, OnDestroy {
         const currentMessagesLeft = this.authService.getMessagesLeft();
         if (!this.authService.isVerified() && currentMessagesLeft !== 0) {
           // Fetch the actual messagesLeft from backend
-          this.http.get<{ messagesLeft: number | null }>(`${environment.apiUrl}/profile/GetCurrentUserMessagesLeft`)
+          this.http.get<{ messagesLeft: number | null }>(`${this.settingsService.apiUrl}/profile/GetCurrentUserMessagesLeft`)
             .subscribe({
               next: (response) => {
                 console.log('Received messagesLeft from server:', response.messagesLeft);
@@ -491,7 +492,7 @@ export class FeedComponent implements OnInit, OnDestroy {
             });
           } else {
             // Fetch message limit from backend when unverified to restore the counter
-            this.http.get<{ messagesLeft: number | null }>(`${environment.apiUrl}/profile/GetCurrentUserMessagesLeft`)
+            this.http.get<{ messagesLeft: number | null }>(`${this.settingsService.apiUrl}/profile/GetCurrentUserMessagesLeft`)
               .subscribe({
                 next: (response) => {
                   console.log('Fetched messagesLeft after unverification:', response.messagesLeft);
@@ -598,7 +599,7 @@ export class FeedComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.currentPage = page;
     this.http.get<{ feeds: FeedItem[], totalCount: number, page: number, pageSize: number }>(
-      `${environment.apiUrl}/feed/getfeedpaginated?page=${page}&pageSize=${this.pageSize}`
+      `${this.settingsService.apiUrl}/feed/getfeedpaginated?page=${page}&pageSize=${this.pageSize}`
     ).subscribe({
       next: (response) => {
         const currentUserId = this.authService.getUserId();
@@ -668,7 +669,7 @@ export class FeedComponent implements OnInit, OnDestroy {
     this.posting = true;
     const postData = { text: this.postForm.value.text };
 
-    this.http.post<{ id: number; messagesLeft: number | null }>(`${environment.apiUrl}/feed/addfeed`, postData)
+    this.http.post<{ id: number; messagesLeft: number | null }>(`${this.settingsService.apiUrl}/feed/addfeed`, postData)
       .subscribe({
         next: (response) => {
           this.postForm.reset();
@@ -716,7 +717,7 @@ export class FeedComponent implements OnInit, OnDestroy {
         return;
       }
 
-      this.http.post(`${environment.apiUrl}/feed/dislike`, { id: userLike.id, feedId: feed.id })
+      this.http.post(`${this.settingsService.apiUrl}/feed/dislike`, { id: userLike.id, feedId: feed.id })
         .subscribe({
           next: () => {
             // SignalR will update all clients
@@ -729,7 +730,7 @@ export class FeedComponent implements OnInit, OnDestroy {
         });
     } else {
       // Like
-      this.http.post<{ id: number; feedId: number; profileId: number }>(`${environment.apiUrl}/feed/like`, { feedId: feed.id })
+      this.http.post<{ id: number; feedId: number; profileId: number }>(`${this.settingsService.apiUrl}/feed/like`, { feedId: feed.id })
         .subscribe({
           next: () => {
             // SignalR will update all clients
@@ -748,7 +749,7 @@ export class FeedComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.http.post(`${environment.apiUrl}/feed/deletefeed`, { id: feed.id })
+    this.http.post(`${this.settingsService.apiUrl}/feed/deletefeed`, { id: feed.id })
       .subscribe({
         next: () => {
           // SignalR will handle removal for all clients
@@ -771,7 +772,7 @@ export class FeedComponent implements OnInit, OnDestroy {
     if (!photoPath) return '';
     if (photoPath.startsWith('http')) return photoPath;
     // photoPath already includes /api prefix, so use base URL without /api
-    const baseUrl = environment.apiUrl.replace('/api', '');
+    const baseUrl = this.settingsService.apiUrl.replace('/api', '');
     return `${baseUrl}${photoPath}`;
   }
 
@@ -790,7 +791,7 @@ export class FeedComponent implements OnInit, OnDestroy {
     const pageSize = 5;
 
     this.http.get<{ comments: FeedItem[], totalCount: number }>(
-      `${environment.apiUrl}/feed/getcommentspaginated/${feed.id}?page=${page}&pageSize=${pageSize}`
+      `${this.settingsService.apiUrl}/feed/getcommentspaginated/${feed.id}?page=${page}&pageSize=${pageSize}`
     ).subscribe({
       next: (response) => {
         const currentUserId = this.authService.getUserId();
@@ -882,7 +883,7 @@ export class FeedComponent implements OnInit, OnDestroy {
       parentId: feed.id
     };
 
-    this.http.post<{ id: number }>(`${environment.apiUrl}/feed/addfeed`, commentData)
+    this.http.post<{ id: number }>(`${this.settingsService.apiUrl}/feed/addfeed`, commentData)
       .subscribe({
         next: () => {
           feed.commentText = '';

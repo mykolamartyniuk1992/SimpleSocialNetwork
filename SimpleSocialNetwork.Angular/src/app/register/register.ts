@@ -11,7 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { CommonModule } from '@angular/common';
 import { PhotoCropDialog } from '../photo-crop-dialog/photo-crop-dialog';
-import { environment } from '../../environments/environment';
+import { SettingsService } from '../services/settings.service';
 
 @Component({
   selector: 'app-register',
@@ -40,7 +40,8 @@ export class RegisterComponent {
     private router: Router, 
     private dialog: MatDialog,
     private http: HttpClient,
-    private authService: AuthService
+    private authService: AuthService,
+    private settingsService: SettingsService
   ) {
     this.registerForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -118,7 +119,7 @@ export class RegisterComponent {
         password: this.registerForm.value.password
       };
 
-      this.http.post<{ id: number; token: string; isAdmin: boolean; name: string; photoUrl: string; verified: boolean; messagesLeft: number | null }>(`${environment.apiUrl}/Register/Register`, registerData)
+      this.http.post<{ id: number; token: string; isAdmin: boolean; name: string; photoUrl: string; verified: boolean; messagesLeft: number | null }>(`${this.settingsService.apiUrl}/Register/Register`, registerData)
         .subscribe({
           next: async (response) => {
             console.log('Registration successful', response);
@@ -159,7 +160,7 @@ export class RegisterComponent {
     formData.append('profileId', profileId.toString());
 
     return new Promise<void>((resolve, reject) => {
-      this.http.post(`${environment.apiUrl}/Profile/UploadPhoto`, formData)
+      this.http.post(`${this.settingsService.apiUrl}/Profile/UploadPhoto`, formData)
         .subscribe({
           next: () => {
             console.log('Photo uploaded successfully');

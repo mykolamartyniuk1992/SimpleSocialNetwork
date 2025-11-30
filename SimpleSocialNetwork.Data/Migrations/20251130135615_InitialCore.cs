@@ -10,6 +10,7 @@ namespace SimpleSocialNetwork.Data.Migrations
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
+
         {
             migrationBuilder.CreateTable(
                 name: "profiles",
@@ -144,30 +145,42 @@ namespace SimpleSocialNetwork.Data.Migrations
             Console.WriteLine($"Messages Left: 100");
             Console.WriteLine("============================================");
 
-            // Create settings table for global config
             migrationBuilder.CreateTable(
                 name: "settings",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    DefaultMessageLimit = table.Column<int>(type: "int", nullable: false, defaultValue: 100)
+                    DefaultMessageLimit = table.Column<int>(type: "int", nullable: false),
+                    ProjectId = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_settings", x => x.Id);
                 });
 
-            // Insert initial value
-            migrationBuilder.Sql("INSERT INTO settings (DefaultMessageLimit) VALUES (100)");
+            // Seed default ProjectId
+            migrationBuilder.InsertData(
+                table: "settings",
+                columns: new[] { "Id", "DefaultMessageLimit", "ProjectId" },
+                values: new object[] { 1, 100, "norse-strata-476814-j9" }
+            );
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(name: "likes");
-            migrationBuilder.DropTable(name: "feed");
-            migrationBuilder.DropTable(name: "profiles");
+            migrationBuilder.DropTable(
+                name: "likes");
+
+            migrationBuilder.DropTable(
+                name: "settings");
+
+            migrationBuilder.DropTable(
+                name: "feed");
+
+            migrationBuilder.DropTable(
+                name: "profiles");
         }
     }
 }

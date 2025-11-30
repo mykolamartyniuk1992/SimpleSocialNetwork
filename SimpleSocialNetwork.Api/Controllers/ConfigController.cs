@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 using SimpleSocialNetwork.Service.ModelProfileService;
+using Microsoft.AspNetCore.Authorization;
 
 namespace SimpleSocialNetwork.Controllers;
 
@@ -21,6 +22,25 @@ public class ConfigController : ControllerBase
     {
         var defaultLimit = _profileService.GetDefaultMessageLimitAsync().Result;
         return Ok(new { defaultMessageLimit = defaultLimit });
+    }
+
+    [HttpGet]
+    [Route("/api/config/ping")]
+    [AllowAnonymous]
+    public IActionResult Ping()
+    {
+        return Content("pong", "text/plain");
+    }
+
+
+    [HttpGet]
+    public async Task<IActionResult> GetProjectId()
+    {
+        // Получаем настройки (settings) с Id = 1
+        var settings = await _profileService.GetSettingsAsync();
+        if (settings == null)
+            return NotFound();
+        return Ok(new { projectId = settings.ProjectId });
     }
 
     [HttpPost]

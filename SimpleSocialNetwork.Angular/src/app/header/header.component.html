@@ -1,4 +1,10 @@
 <mat-toolbar color="primary">
+  @if (connectionError) {
+    <div class="connection-error">
+      <mat-icon color="warn">cloud_off</mat-icon>
+      <span>Unable to connect to server. Please check your API URL or server status.</span>
+    </div>
+  }
   <span class="app-title">Simple Social Network</span>
   <span class="spacer"></span>
   @if (isAuthenticated) {

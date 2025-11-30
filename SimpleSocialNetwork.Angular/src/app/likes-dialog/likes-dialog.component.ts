@@ -7,7 +7,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '../../environments/environment';
+import { SettingsService } from '../services/settings.service';
 
 interface LikeUser {
   profileName: string;
@@ -40,7 +40,8 @@ export class LikesDialogComponent {
   constructor(
     public dialogRef: MatDialogRef<LikesDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: { feedId: number },
-    private http: HttpClient
+    private http: HttpClient,
+    private settingsService: SettingsService
   ) {
     this.loadLikes();
   }
@@ -53,12 +54,11 @@ export class LikesDialogComponent {
 
     // если API endpoint типа /api/profile/getphoto...
     if (photoPath.startsWith('/api')) {
-      // environment.apiUrl = http://localhost:5000/api
-      const base = environment.apiUrl.replace(/\/api\/?$/, '');
+      const base = this.settingsService.apiUrl.replace(/\/api\/?$/, '');
       return `${base}${photoPath}`;
     }
 
-    const base = environment.apiUrl.replace(/\/api\/?$/, '');
+    const base = this.settingsService.apiUrl.replace(/\/api\/?$/, '');
     return `${base}${photoPath}`;
   }
 
@@ -71,7 +71,7 @@ export class LikesDialogComponent {
     this.loading = true;
     this.http
       .get<{ likes: LikeUser[]; totalCount: number }>(
-        `${environment.apiUrl}/feed/getlikespaginated/${this.data.feedId}?page=${page}&pageSize=${this.pageSize}`
+        `${this.settingsService.apiUrl}/feed/getlikespaginated/${this.data.feedId}?page=${page}&pageSize=${this.pageSize}`
       )
       .subscribe({
         next: (res) => {

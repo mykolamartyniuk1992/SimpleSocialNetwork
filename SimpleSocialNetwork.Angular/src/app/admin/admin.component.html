@@ -1,4 +1,5 @@
 <div class="admin-container">
+
   <mat-card>
     <mat-card-header>
       <mat-card-title>
@@ -10,7 +11,6 @@
       <div class="config-section">
         <h3>API Configuration</h3>
         <p class="current-url">Current API URL: <strong>{{ currentApiUrl }}</strong></p>
-        
         <form [formGroup]="apiConfigForm" class="api-form">
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>API Base URL</mat-label>
@@ -23,7 +23,6 @@
               <mat-error>Invalid URL format (must start with http:// or https://)</mat-error>
             }
           </mat-form-field>
-
           <div class="button-group">
             <button mat-raised-button color="primary" (click)="onSaveApiUrl()" [disabled]="!apiConfigForm.valid" class="action-button">
               <mat-icon>save</mat-icon>
@@ -37,11 +36,33 @@
         </form>
       </div>
 
+      <div class="config-section">
+        <h3>Project ID</h3>
+        <p class="current-url">Current Project ID: <strong>{{ projectId || 'Not set' }}</strong></p>
+        <form [formGroup]="projectIdForm" class="projectid-form">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Project ID</mat-label>
+            <input matInput formControlName="projectId" placeholder="Enter Project ID" />
+            <mat-icon matPrefix>vpn_key</mat-icon>
+            @if (projectIdForm.get('projectId')?.hasError('required') && projectIdForm.get('projectId')?.touched) {
+              <mat-error>Project ID is required</mat-error>
+            }
+            @if (projectIdForm.get('projectId')?.hasError('minlength')) {
+              <mat-error>Project ID must be at least 3 characters</mat-error>
+            }
+          </mat-form-field>
+          <button mat-raised-button color="primary" (click)="onSaveProjectId()" [disabled]="!projectIdForm.valid || savingProjectId" class="action-button">
+            <mat-icon>save</mat-icon>
+            Save Project ID
+          </button>
+        </form>
+      </div>
+
       <div class="info-section">
         <mat-icon>info</mat-icon>
         <p>
-          Configure the API base URL for your backend server. 
-          Changes will be saved locally and applied after page refresh.
+          Configure the API base URL and Project ID for your backend server. 
+          Changes will be saved and applied after page refresh.
         </p>
       </div>
     </mat-card-content>

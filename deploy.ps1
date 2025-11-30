@@ -357,19 +357,23 @@ $RemoteBlock = {
         Write-Log "   [Remote] Deploying files to $ApiRoot and $WebRoot..."
 
         if (Test-Path $ApiRoot) {
-            # Preserve uploads/profiles directory and its contents
+            # Robustly preserve uploads/profiles directory and its contents
             $profilesDir = Join-Path $ApiRoot "uploads\profiles"
-            $tempPreserveDir = Join-Path $ApiRoot "__preserve_profiles__"
+            $preserveRoot = Join-Path $TempRoot "preserve_profiles_temp"
             if (Test-Path $profilesDir) {
-                Move-Item $profilesDir $tempPreserveDir -Force
+                if (-not (Test-Path $preserveRoot)) {
+                    New-Item -ItemType Directory -Path $preserveRoot | Out-Null
+                }
+                Move-Item $profilesDir (Join-Path $preserveRoot "profiles") -Force
             }
             Remove-Item "$ApiRoot\*" -Recurse -Force -ErrorAction SilentlyContinue
-            if (Test-Path $tempPreserveDir) {
-                $uploadsDir = Join-Path $ApiRoot "uploads"
+            $uploadsDir = Join-Path $ApiRoot "uploads"
+            if (Test-Path (Join-Path $preserveRoot "profiles")) {
                 if (-not (Test-Path $uploadsDir)) {
                     New-Item -ItemType Directory -Path $uploadsDir | Out-Null
                 }
-                Move-Item $tempPreserveDir (Join-Path $uploadsDir "profiles") -Force
+                Move-Item (Join-Path $preserveRoot "profiles") (Join-Path $uploadsDir "profiles") -Force
+                Remove-Item $preserveRoot -Recurse -Force -ErrorAction SilentlyContinue
             }
         } else {
             New-Item -ItemType Directory -Path $ApiRoot | Out-Null

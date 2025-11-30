@@ -42,9 +42,9 @@
     <mat-card-header>
       <div mat-card-avatar class="feed-avatar">
         @if (feed.profilePhotoPath) {
-        <img [src]="getFullPhotoUrl(feed.profilePhotoPath)" alt="Profile" class="avatar-photo">
+          <img [src]="getFullPhotoUrl(feed.profilePhotoPath)" alt="Profile" class="avatar-photo" (error)="feed.profilePhotoPath = ''">
         } @else {
-        <mat-icon>account_circle</mat-icon>
+          <mat-icon>account_circle</mat-icon>
         }
       </div>
       <mat-card-title>{{ feed.name }}</mat-card-title>

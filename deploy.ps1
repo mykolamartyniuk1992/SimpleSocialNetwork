@@ -209,8 +209,9 @@ if ($ResetDatabase) {
     }
 
     if ($cancel) {
-        Write-Host "Database wipe cancelled by user. Continuing deploy WITHOUT dropping DB." -ForegroundColor Green
+        Write-Host "Database wipe cancelled by user. Exiting script." -ForegroundColor Green
         $ResetDatabase = $false
+        exit
     }
     else {
         Write-Host "Database wipe confirmed (no key pressed). The DB will be dropped on the remote host." -ForegroundColor Red

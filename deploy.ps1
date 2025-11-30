@@ -187,34 +187,38 @@ function Watch-RemoteLog {
     }
 }
 
-# --- Опциональный полный ресет базы данных перед деплоем --------------------
 if ($ResetDatabase) {
     Write-Host ""
-    Write-Host "⚠️  WARNING: FULL DATABASE RESET ENABLED!" -ForegroundColor Red
-    Write-Host "    Target DB: SimpleSocialNetwork on remote SQL Server (localhost)" -ForegroundColor Red
-    Write-Host "    The database will be DROPPED and recreated on the remote server." -ForegroundColor Red
+    Write-Host "⚠️  WARNING: FULL DATABASE RESET ENABLED!" -ForegroundColor Yellow
+    Write-Host "    Target DB: SimpleSocialNetwork on remote SQL Server (localhost)"
+    Write-Host "    The database will be DROPPED and recreated on the remote server."
     Write-Host ""
     Write-Host "Press ANY key within 10 seconds to CANCEL database wipe..." -ForegroundColor Yellow
 
     $cancel = $false
+    $seconds = 10
 
-    for ($i = 10; $i -ge 1; $i--) {
-        if ($Host.UI.RawUI.KeyAvailable) {
-            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    for ($i = $seconds; $i -gt 0; $i--) {
+        # если нажали любую клавишу — отменяем вайп
+        if ([Console]::KeyAvailable) {
+            [void][Console]::ReadKey($true)  # забираем нажатую клавишу из буфера
             $cancel = $true
             break
         }
-        Write-Host ("  Wiping DB in {0} sec..." -f $i)
+
+        Write-Host ("`r  Wiping DB in {0} sec..." -f $i) -NoNewline
         Start-Sleep -Seconds 1
     }
 
+    Write-Host ""  # перенос строки после `-NoNewline`
+
     if ($cancel) {
-        Write-Host "Database wipe cancelled by user. Exiting script." -ForegroundColor Green
+        Write-Host "⏹ Database wipe CANCELLED by user. Exiting script." -ForegroundColor Cyan
         $ResetDatabase = $false
         exit
     }
     else {
-        Write-Host "Database wipe confirmed (no key pressed). The DB will be dropped on the remote host." -ForegroundColor Red
+        Write-Host "✅ Proceeding with database RESET on remote server..." -ForegroundColor Red
     }
 }
 

@@ -357,7 +357,20 @@ $RemoteBlock = {
         Write-Log "   [Remote] Deploying files to $ApiRoot and $WebRoot..."
 
         if (Test-Path $ApiRoot) {
+            # Preserve uploads/profiles directory and its contents
+            $profilesDir = Join-Path $ApiRoot "uploads\profiles"
+            $tempPreserveDir = Join-Path $ApiRoot "__preserve_profiles__"
+            if (Test-Path $profilesDir) {
+                Move-Item $profilesDir $tempPreserveDir -Force
+            }
             Remove-Item "$ApiRoot\*" -Recurse -Force -ErrorAction SilentlyContinue
+            if (Test-Path $tempPreserveDir) {
+                $uploadsDir = Join-Path $ApiRoot "uploads"
+                if (-not (Test-Path $uploadsDir)) {
+                    New-Item -ItemType Directory -Path $uploadsDir | Out-Null
+                }
+                Move-Item $tempPreserveDir (Join-Path $uploadsDir "profiles") -Force
+            }
         } else {
             New-Item -ItemType Directory -Path $ApiRoot | Out-Null
         }

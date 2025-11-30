@@ -165,8 +165,7 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
 
         public async Task<(string Email, string Password)?> GetTestUserCredentialsAsync()
         {
-            // Первый неадмин, не IsSystemUser пользователь
-            var testUser = await profileRepo.FirstOrDefaultAsync(p => p.IsAdmin == false && p.IsSystemUser == false);
+            var testUser = await profileRepo.FirstOrDefaultAsync(p => p.Email == "testuser@simplesocialnetwork.local");
             if (testUser == null)
             {
                 return null;

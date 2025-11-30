@@ -57,6 +57,11 @@ export class LoginComponent {
   loginAsTestUser?: () => void;
 
   ngOnInit() {
+    // Если пользователь уже авторизован, редиректим на /feed
+    if (this.authService.isAuthenticated()) {
+      this.router.navigate(['/feed']);
+      return;
+    }
     if (this.isDevelopment) {
       this.loginAsAdmin = () => {
         this.http.get<{ email: string; password: string }>(`${this.settingsService.apiUrl}/login/getadmincredentials`)

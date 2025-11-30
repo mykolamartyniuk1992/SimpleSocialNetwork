@@ -273,8 +273,13 @@ $json | ConvertTo-Json -Depth 10 | Set-Content $AppSettingsFile -Encoding UTF8
 New-Item -ItemType Directory -Path "$ApiStagePath/wwwroot" -Force | Out-Null
 
 # --- 4. СБОРКА ANGULAR -------------------------------------------------------
+
 Write-Host "🎨 Building Angular..." -ForegroundColor Cyan
 Push-Location (Join-Path $RepoRoot $WebFolder)
+
+# Generate version before build
+Write-Host "   -> Generating version..." -ForegroundColor DarkGray
+node scripts/generate-version.js
 
 Write-Host "   -> Configuring API URL for Production..." -ForegroundColor DarkGray
 $TargetApiUrl = if ($ApiUrl) { $ApiUrl } else { "https://$DomainName" }

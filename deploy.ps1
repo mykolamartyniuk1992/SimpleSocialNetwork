@@ -235,9 +235,11 @@ New-Item -ItemType Directory -Path "$StagingDir/wwwroot"  | Out-Null
 Write-Host "🔨 Building .NET API..." -ForegroundColor Cyan
 Push-Location (Join-Path $RepoRoot $ApiFolder)
 
-dotnet publish -c Release -r win-x64 --self-contained false
 
-$PublishSource = Resolve-Path "bin\Release\*\win-x64\publish" | Select-Object -Last 1
+# Publish in Debug mode for remote debugging
+dotnet publish -c Debug -r win-x64 --self-contained false
+
+$PublishSource = Resolve-Path "bin\Debug\*\win-x64\publish" | Select-Object -Last 1
 if (-not $PublishSource -or -not (Test-Path $PublishSource)) {
     Pop-Location
     throw "API publish failed!"

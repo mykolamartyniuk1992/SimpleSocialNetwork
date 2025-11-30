@@ -7,9 +7,7 @@
   }
   <span class="app-title">Simple Social Network</span>
   <span class="spacer"></span>
-  <div>authenicated: {{isAuthenticated}}</div>
   @if (isAuthenticated) {
-    <div>authenicated!</div>
     @if (showMessagesLeft) {
       <div class="messages-counter">
         <mat-icon>message</mat-icon>
@@ -52,8 +50,5 @@
         <mat-icon>admin_panel_settings</mat-icon>
       </button>
     }
-  }
-  @else {
-    <div>not authenicated</div>
   }
 </mat-toolbar>

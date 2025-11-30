@@ -12,6 +12,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { SettingsService } from '../services/settings.service';
+import { environment } from '../../environments/environment';
 
 interface User {
   id: number;
@@ -49,7 +50,7 @@ export class AdminComponent implements OnInit {
   projectIdForm: FormGroup;
   messageLimitForm: FormGroup;
   currentApiUrl: string;
-  defaultMessageLimit: number = 100;
+  defaultMessageLimit: number;
   saving: boolean = false;
   
   users: User[] = [];
@@ -68,6 +69,8 @@ export class AdminComponent implements OnInit {
     private http: HttpClient,
     private settingsService: SettingsService
   ) {
+    this.defaultMessageLimit = environment.defaultMessageLimit;
+
     // Получить текущий API URL через SettingsService
     this.currentApiUrl = this.settingsService.apiUrl;
 

@@ -7,7 +7,7 @@ import { environment } from '../../environments/environment';
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
   private _projectId: string | null = null;
-  private _defaultMessageLimit: number = 100;
+  private _defaultMessageLimit: number = environment.defaultMessageLimit;
   private _apiUrl: string = '';
   private _configLoaded: boolean = false;
 
@@ -63,9 +63,6 @@ export class SettingsService {
     try {
       const result = await firstValueFrom(this.http.get<{ projectId: string, defaultMessageLimit?: number }>(`${this.apiUrl}/config/getprojectid`));
       this._projectId = result.projectId;
-      if (result.defaultMessageLimit !== undefined) {
-        this._defaultMessageLimit = result.defaultMessageLimit;
-      }
     } catch (e) {
       this._projectId = null;
     }

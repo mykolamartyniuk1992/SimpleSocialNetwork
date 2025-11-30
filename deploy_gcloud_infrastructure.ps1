@@ -3,7 +3,7 @@
 # =============================================
 
 Param(
-  [string]$Project = "",
+  [string]$Project = "norse-strata-476814-j9",
   [string]$Region = "us-central1",
   [string]$Zone = "us-central1-c",
   [string]$TemplateName = "webapp-windows-template",
@@ -12,7 +12,7 @@ Param(
   # network/disks/tags
   [string]$Network = "default",
   [string]$Subnetwork = "",                      # can be left empty for regional default
-  [string]$MachineType = "n2-highcpu-16",
+  [string]$MachineType = "e2-standard-4",
   [string]$BootDiskType = "pd-ssd",
   [string]$BootDiskSize = "200GB",
   [string]$Tags = "webapp,rdp-allow,https-allow,http-allow",

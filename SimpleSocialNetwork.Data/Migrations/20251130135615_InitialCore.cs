@@ -144,7 +144,7 @@ namespace SimpleSocialNetwork.Data.Migrations
             Console.WriteLine("TEST UNVERIFIED USER CREATED");
             Console.WriteLine($"Email: {testEmail}");
             Console.WriteLine($"Password: {testPassword}");
-            Console.WriteLine($"Messages Left: 100");
+            Console.WriteLine($"Messages Left: {defaultMessageLimit}");
             Console.WriteLine("============================================");
 
             migrationBuilder.CreateTable(

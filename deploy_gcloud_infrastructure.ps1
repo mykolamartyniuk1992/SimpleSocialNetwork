@@ -28,7 +28,7 @@ Param(
   [string]$MailSecretName = "resend-email-api-key",
 
   # Resend DNS values
-  [string]$ResendDkimValue = "v=DKIM1; k=rsa; ",
+  [string]$ResendDkimValue = "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDe1AbDloh5x0fNvf/ck6ClEHHl/VmUWtncczbn02M1SHcw5nKpRzvosRYXB6Iu2XNxvifnnFXAX63/aY+ccvG7bSLiPR5+LPvOWbbnwfeku06ofTc4mnfPw/SGc3E3vLNASviKSJiVhsqe5FNHc2PCL61Tr1/TpVaEEVQ5Uy/oTQIDAQAB",
   [string]$ResendSpfValue = "v=spf1 include:amazonses.com ~all",
   [string]$ResendDmarcValue = "v=DMARC1; p=none;",
 

@@ -5,7 +5,7 @@ interface LastLike {
   token?: string;
   photoPath?: string;
 }
-import { Component, OnInit, OnDestroy, NgZone, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone, HostListener, ChangeDetectorRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -77,6 +77,10 @@ interface FeedItem {
   styleUrl: './feed.css',
 })
 export class FeedComponent implements OnInit, OnDestroy {
+    onPhotoError(feed: FeedItem) {
+      feed.profilePhotoPath = '';
+      this.cdr.detectChanges();
+    }
   // ...existing code...
   feeds: FeedItem[] = [];
   loading = true;
@@ -103,8 +107,13 @@ export class FeedComponent implements OnInit, OnDestroy {
     private ngZone: NgZone,
     private router: Router,
     private snackBar: MatSnackBar,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private cdr: ChangeDetectorRef
   ) {
+      onPhotoError(feed: FeedItem) {
+        feed.profilePhotoPath = '';
+        this.cdr.detectChanges();
+      }
     this.postForm = this.fb.group({
       text: ['', [Validators.required, Validators.maxLength(500)]]
     });

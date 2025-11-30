@@ -67,9 +67,18 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   private loadUserProfile(): void {
     this.userName = this.authService.getUserName() || 'User';
-    this.photoUrl = this.authService.getPhotoUrl();
+    const rawPhotoUrl = this.authService.getPhotoUrl();
+    console.log('Raw photo URL from AuthService:', rawPhotoUrl);
+    // Если photoUrl пустой, null, undefined или явно "null" — не показываем фото
+    if (!rawPhotoUrl || rawPhotoUrl === 'null' || rawPhotoUrl === 'undefined') {
+      this.photoUrl = null;
+    } else {
+      this.photoUrl = rawPhotoUrl;
+    }
+    console.log('Processed photo URL:', this.photoUrl);
     // Generate new timestamp each time profile is loaded to force cache refresh
     this.fullPhotoUrl = this.buildFullPhotoUrl();
+    console.log('Full photo URL after processing:', this.fullPhotoUrl);
   }
 
   get isAuthenticated(): boolean {

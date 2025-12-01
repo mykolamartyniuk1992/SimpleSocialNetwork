@@ -17,48 +17,49 @@ export class SettingsService {
 
 
   constructor(private http: HttpClient) {
-    // Загрузка apiUrl из конфиг-файла assets/appconfig.json
+  }
+
+  public initialize(): Promise<void> {
     const localApiUrl = localStorage.getItem('apiUrl');
     console.log('[SettingsService] localStorage apiUrl:', localApiUrl);
     if (localApiUrl) {
       this._apiUrl = localApiUrl;
       this._configLoaded = true;
       console.log('[SettingsService] Using apiUrl from localStorage:', this._apiUrl);
+      return Promise.resolve();
     } else {
       console.log('[SettingsService] No apiUrl in localStorage, loading config...');
-      this.loadAppConfig();
+      return this.loadAppConfig();
     }
   }
 
-  private loadAppConfig(): void {
+  private async loadAppConfig(): Promise<void> {
     const configFile = environment.production ? '/assets/appconfig.production.json' : '/assets/appconfig.json';
     console.log('[SettingsService] Loading config file:', configFile, '| environment.production =', environment.production);
-    this.http.get(configFile, { responseType: 'text' }).subscribe({
-      next: (text) => {
-        let config: any = null;
-        try {
-          config = JSON.parse(text);
-        } catch (e) {
-          console.error('[SettingsService] Failed to parse config JSON:', e, text);
-          this._connectionError$.next(true);
-          return;
-        }
-        if (!config.apiUrl) {
-          console.error('[SettingsService] Config loaded but apiUrl missing:', config);
-          this._connectionError$.next(true);
-          return;
-        }
-        console.log('[SettingsService] Config loaded:', config);
-        this._apiUrl = config.apiUrl;
-        this._configLoaded = true;
-        this._connectionError$.next(false);
-      },
-      error: (err) => {
-        console.error('[SettingsService] Failed to load config:', configFile, err);
-        // Не присваиваем _apiUrl и _configLoaded, если не удалось загрузить конфиг
+    
+    try {
+      const text = await firstValueFrom(this.http.get(configFile, { responseType: 'text' }));
+      let config: any = null;
+      try {
+        config = JSON.parse(text);
+      } catch (e) {
+        console.error('[SettingsService] Failed to parse config JSON:', e, text);
         this._connectionError$.next(true);
+        return;
       }
-    });
+      if (!config.apiUrl) {
+        console.error('[SettingsService] Config loaded but apiUrl missing:', config);
+        this._connectionError$.next(true);
+        return;
+      }
+      console.log('[SettingsService] Config loaded:', config);
+      this._apiUrl = config.apiUrl;
+      this._configLoaded = true;
+      this._connectionError$.next(false);
+    } catch (err) {
+      console.error('[SettingsService] Failed to load config:', configFile, err);
+      this._connectionError$.next(true);
+    }
   }
   public setConnectionError(state: boolean) {
     this._connectionError$.next(state);

@@ -11,6 +11,12 @@ import { AccountSettingsComponent } from './app/account-settings/account-setting
 import { MessageComponent } from './app/message/message.component';
 import { authGuard } from './app/guards/auth.guard';
 import { authInterceptor } from './app/interceptors/auth.interceptor';
+import { APP_INITIALIZER } from '@angular/core';
+import { SettingsService } from './app/services/settings.service';
+
+export function initializeApp(settingsService: SettingsService) {
+  return () => settingsService.initialize();
+}
 
 bootstrapApplication(AppComponent, {
   providers: [
@@ -24,6 +30,12 @@ bootstrapApplication(AppComponent, {
       { path: 'admin', component: AdminComponent, canActivate: [authGuard] },  // /admin route - protected
       { path: 'account-settings', component: AccountSettingsComponent, canActivate: [authGuard] },  // /account-settings route - protected
     ]),
-    materialDialogProvider
+    materialDialogProvider,
+    {
+      provide: APP_INITIALIZER,
+      useFactory: initializeApp,
+      deps: [SettingsService],
+      multi: true
+    }
   ]
 }).catch(err => console.error(err));

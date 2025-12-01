@@ -115,7 +115,9 @@ namespace SimpleSocialNetwork.Service.ModelProfileService
             }
 
             var token = Guid.NewGuid().ToString();
-            var defaultMessageLimit = int.TryParse(_configuration["AppSettings:DefaultMessageLimit"], out var limit) ? limit : 100;
+            // Получаем лимит сообщений из базы
+            var settings = await settingsRepo.FirstOrDefaultAsync(s => s.Id == 1);
+            var defaultMessageLimit = settings?.DefaultMessageLimit ?? 5;
 
             // Генерируем уникальный verify_hash
             var verifyHash = Guid.NewGuid().ToString("N");

@@ -5,6 +5,7 @@
 
 mykola_ssh
 mykola_ssh.pub
+gcp-email-sa-key.json
 
 # User-specific files
 *.rsuser
